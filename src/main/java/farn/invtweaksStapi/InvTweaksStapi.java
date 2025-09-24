@@ -30,7 +30,7 @@ public class InvTweaksStapi {
 
     @EventListener
     public void pressKey(KeyStateChangedEvent event) {
-        if(instance != null && Keyboard.getEventKey() == Const.SORT_KEY_BINDING.code) {
+        if(instance != null && Keyboard.getEventKey() == Const.SORT_KEY_BINDING.code && instance.mc.world != null) {
             if(!keyDownSort) {
                 keyDownSort = true;
                 instance.onSortingKeyPressed();

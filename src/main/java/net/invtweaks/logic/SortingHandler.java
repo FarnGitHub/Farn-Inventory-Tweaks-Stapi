@@ -10,6 +10,7 @@ import java.util.Vector;
 import java.util.concurrent.TimeoutException;
 
 import farn.invtweaksStapi.InvTweaksStapi;
+import net.invtweaks.InvTweaks;
 import net.invtweaks.config.InvTweaksConfig;
 import net.invtweaks.config.SortingRule;
 import net.invtweaks.library.ContainerManager;
@@ -107,7 +108,6 @@ public class SortingHandler extends Obfuscation {
 			int i;
 			int i22;
 			if(this.algorithm == 3) {
-				log.info("Handling crafting slots.");
 				if(globalContainer.hasSection(ContainerManager.ContainerSection.CRAFTING_IN)) {
 					List rulesIt = globalContainer.getSlots(ContainerManager.ContainerSection.CRAFTING_IN);
 					i = globalContainer.getFirstEmptyIndex(ContainerManager.ContainerSection.INVENTORY);
@@ -126,8 +126,6 @@ public class SortingHandler extends Obfuscation {
 						}
 					}
 				}
-
-				log.info("Merging stacks.");
 
 				label144:
 				for(int i15 = this.size - 1; i15 >= 0; --i15) {
@@ -178,7 +176,6 @@ public class SortingHandler extends Obfuscation {
 				}
 			}
 
-			log.info("Applying rules.");
 			Iterator iterator16 = this.rules.iterator();
 
 			while(iterator16.hasNext()) {
@@ -219,8 +216,6 @@ public class SortingHandler extends Obfuscation {
 				}
 			}
 
-			log.info("Locking stacks.");
-
 			for(i = 0; i < this.size; ++i) {
 				if(this.hasToBeMoved(i) && this.lockPriorities[i] > 0) {
 					this.markAsMoved(i, 1);
@@ -237,7 +232,6 @@ public class SortingHandler extends Obfuscation {
 	}
 
 	private void defaultSorting() throws TimeoutException {
-		log.info("Default sorting.");
 		Vector remaining = new Vector();
 		Vector nextRemaining = new Vector();
 

@@ -297,9 +297,6 @@ public class InvTweaks extends Obfuscation {
 					newRuleset = config.switchConfig(8);
 				}
 
-				if(newRuleset != null) {
-					this.logInGame("\'" + newRuleset + "\' enabled");
-				}
 			}
 		}
 
