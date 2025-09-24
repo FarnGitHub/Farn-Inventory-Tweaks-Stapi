@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "farn.invtweaksStapi.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "ScreenAccessor",
+    "ContainerScreenAccessor",
+    "MixinPlayerPickUp",
+    "MixinOnTick"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
