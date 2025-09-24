@@ -179,9 +179,6 @@ public class InvTweaksConfig {
 	public void setProperty(String key, String value) {
 		this.properties.put(key, value);
 		this.saveProperties();
-		if(key.equals("enableMiddleClick")) {
-			this.resolveConvenientInventoryConflicts();
-		}
 
 	}
 
@@ -257,71 +254,6 @@ public class InvTweaksConfig {
 		}
 	}
 
-	public void resolveConvenientInventoryConflicts() {
-		boolean convenientInventoryInstalled = false;
-		boolean defaultCISortingShortcutEnabled = false;
-
-		try {
-			Class shortcutsProp = Class.forName("ConvenientInventory");
-			convenientInventoryInstalled = true;
-			Field middleClickProp = null;
-
-			try {
-				middleClickProp = shortcutsProp.getDeclaredField("middleClickEnabled");
-			} catch (NoSuchFieldException noSuchFieldException13) {
-			}
-
-			if(middleClickProp != null) {
-				boolean initializedField = this.getProperty("enableMiddleClick").equals("true");
-				middleClickProp.setAccessible(true);
-				middleClickProp.setBoolean((Object)null, !initializedField);
-			} else {
-				Field field18 = shortcutsProp.getDeclaredField("initialized");
-				field18.setAccessible(true);
-				Boolean initialized = (Boolean)field18.get((Object)null);
-				if(!initialized.booleanValue()) {
-					Method actionMapField = shortcutsProp.getDeclaredMethod("initialize", new Class[0]);
-					actionMapField.setAccessible(true);
-					actionMapField.invoke((Object)null, new Object[0]);
-				}
-
-				Field field19 = shortcutsProp.getDeclaredField("actionMap");
-				field19.setAccessible(true);
-				List[][] actionMap = (List[][])((List[][])field19.get((Object)null));
-				if(actionMap != null && actionMap[7] != null) {
-					List[] arr$ = actionMap[7];
-					int len$ = arr$.length;
-
-					for(int i$ = 0; i$ < len$; ++i$) {
-						List combo = arr$[i$];
-						if(combo != null && combo.size() == 1 && ((Integer)combo.get(0)).intValue() == 2) {
-							defaultCISortingShortcutEnabled = true;
-							break;
-						}
-					}
-				}
-			}
-		} catch (ClassNotFoundException classNotFoundException14) {
-		} catch (Exception exception15) {
-			InvTweaks.logInGameErrorStatic("Failed to manage Convenient Inventory compatibility", exception15);
-		}
-
-		String string16 = this.getProperty("enableShortcuts");
-		if(convenientInventoryInstalled && !string16.equals("convenientInventoryCompatibility")) {
-			this.setProperty("enableShortcuts", "convenientInventoryCompatibility");
-		} else if(!convenientInventoryInstalled && string16.equals("convenientInventoryCompatibility")) {
-			this.setProperty("enableShortcuts", "true");
-		}
-
-		String string17 = this.getProperty("enableMiddleClick");
-		if(defaultCISortingShortcutEnabled && !string17.equals("convenientInventoryCompatibility")) {
-			this.setProperty("enableMiddleClick", "convenientInventoryCompatibility");
-		} else if(!defaultCISortingShortcutEnabled && string17.equals("convenientInventoryCompatibility")) {
-			this.setProperty("enableMiddleClick", "true");
-		}
-
-	}
-
 	private void reset() {
 		this.rulesets = new Vector();
 		this.currentRuleset = -1;
@@ -347,7 +279,6 @@ public class InvTweaksConfig {
 			FileInputStream fis = new FileInputStream(configPropsFile);
 			this.properties.load(fis);
 			fis.close();
-			this.resolveConvenientInventoryConflicts();
 		}
 
 		this.properties.sortKeys();

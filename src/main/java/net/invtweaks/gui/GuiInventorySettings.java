@@ -59,20 +59,12 @@ public class GuiInventorySettings extends Screen {
 		this.moveToButtonCoords(i, p);
 		GuiTooltipButton middleClickBtn = new GuiTooltipButton(1, p.getX(), p.getY(), this.computeBooleanButtonLabel("enableMiddleClick", "Middle click"), "To sort using the middle click");
 		controlList.add(middleClickBtn);
-		if(middleClick.equals("convenientInventoryCompatibility")) {
-			middleClickBtn.active = false;
-			middleClickBtn.setTooltip(middleClickBtn.getTooltip() + "\n(In conflict with Convenient Inventory)");
-		}
 
 		this.moveToButtonCoords(i12++, p);
 		controlList.add(new GuiTooltipButton(5, p.getX() + 130, p.getY(), 20, 20, "?", "Shortcuts help"));
 		String shortcuts = this.config.getProperty("enableShortcuts");
 		GuiTooltipButton shortcutsBtn = new GuiTooltipButton(4, p.getX(), p.getY(), 130, 20, this.computeBooleanButtonLabel("enableShortcuts", "Shortcuts"), "Enables various shortcuts\nto move items around");
 		controlList.add(shortcutsBtn);
-		if(shortcuts.equals("convenientInventoryCompatibility")) {
-			shortcutsBtn.active = false;
-			shortcutsBtn.setTooltip(shortcutsBtn.getTooltip() + "\n(In conflict with Convenient Inventory)");
-		}
 
 		this.moveToButtonCoords(i12++, p);
 		GuiTooltipButton sortOnPickupBtn = new GuiTooltipButton(3, p.getX(), p.getY(), this.computeBooleanButtonLabel("enableSortingOnPickup", "Sort on pickup"), "Moves picked up items\nto the right slots");
