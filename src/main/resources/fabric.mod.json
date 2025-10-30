@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "mod_invtweaks",
+	"version": "${version}",
+	"name": "Inventory Tweaks",
+	"description": "A Unofficial port of JimeoWan's Inventory Tweaks v1.31 to StationAPI",
+  "authors": [
+    "JimeoWan",
+    "farnfarn02"
+  ],
+	"license": "CC0-1.0",
+	"icon": "net/invtweaks/icon.png",
+	"environment": "client",
+	"entrypoints": {
+    "modmenu": ["net.invtweaks.modmenu.ModMenuHandler"],
+		"client": [
+      "net.invtweaks.OrnitheInit"
+		]
+	},
+	"mixins": [
+    "invtweaks.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.14.21",
+		"minecraft": "1.0.0-beta.7.3",
+		"osl-entrypoints": ">=0.4.0"
+	}
+}
