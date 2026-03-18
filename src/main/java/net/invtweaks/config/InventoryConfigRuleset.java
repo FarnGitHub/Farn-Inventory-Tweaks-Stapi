@@ -2,23 +2,20 @@ package net.invtweaks.config;
 
 import java.security.InvalidParameterException;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.Vector;
 
-import farn.invtweaksStapi.InvTweaksStapi;
 import net.invtweaks.tree.ItemTree;
-import org.apache.logging.log4j.Logger;
 
 public class InventoryConfigRuleset {
-	private static final Logger log = InvTweaksStapi.LOGGER;
-	private String name;
-	private int[] lockPriorities;
-	private boolean[] frozenSlots;
-	private Vector lockedSlots;
-	private Vector rules;
-	private Vector autoReplaceRules;
+	//private static final Logger log = InvTweaksStapi.LOGGER;
+	private final String name;
+	private final int[] lockPriorities;
+	private final boolean[] frozenSlots;
+	private final Vector<Integer> lockedSlots;
+	private final Vector<SortingRule> rules;
+	private final Vector<String> autoReplaceRules;
 	private boolean debugEnabled;
-	private ItemTree tree;
+	private final ItemTree tree;
 
 	public InventoryConfigRuleset(ItemTree tree, String name) {
 		this.tree = tree;
@@ -36,9 +33,9 @@ public class InventoryConfigRuleset {
 			this.frozenSlots[i] = false;
 		}
 
-		this.lockedSlots = new Vector();
-		this.rules = new Vector();
-		this.autoReplaceRules = new Vector();
+		this.lockedSlots = new Vector<>();
+		this.rules = new Vector<>();
+		this.autoReplaceRules = new Vector<>();
 		this.debugEnabled = false;
 	}
 
@@ -79,11 +76,9 @@ public class InventoryConfigRuleset {
 					String keyword = words[1].toLowerCase();
 					boolean isValidKeyword = this.tree.isKeywordValid(keyword);
 					if(!isValidKeyword) {
-						Vector wordVariants = this.getKeywordVariants(keyword);
-						Iterator i$ = wordVariants.iterator();
+						Vector<String> wordVariants = this.getKeywordVariants(keyword);
 
-						while(i$.hasNext()) {
-							String wordVariant = (String)i$.next();
+						for(String wordVariant : wordVariants) {
 							if(this.tree.isKeywordValid(wordVariant.toLowerCase())) {
 								isValidKeyword = true;
 								keyword = wordVariant;
@@ -118,7 +113,7 @@ public class InventoryConfigRuleset {
 		throw new InvalidParameterException();
 	}
 
-	public void finalize() {
+	public void resortInv() {
 		if(this.autoReplaceRules.isEmpty()) {
 			try {
 				this.autoReplaceRules.add(this.tree.getRootCategory().getName());
@@ -127,7 +122,7 @@ public class InventoryConfigRuleset {
 			}
 		}
 
-		Collections.sort(this.rules, Collections.reverseOrder());
+		this.rules.sort(Collections.reverseOrder());
 
 		for(int i = 0; i < this.lockPriorities.length; ++i) {
 			if(this.lockPriorities[i] > 0) {
@@ -149,15 +144,15 @@ public class InventoryConfigRuleset {
 		return this.frozenSlots;
 	}
 
-	public Vector getLockedSlots() {
+	public Vector<Integer> getLockedSlots() {
 		return this.lockedSlots;
 	}
 
-	public Vector getRules() {
+	public Vector<SortingRule> getRules() {
 		return this.rules;
 	}
 
-	public Vector getAutoReplaceRules() {
+	public Vector<String> getAutoReplaceRules() {
 		return this.autoReplaceRules;
 	}
 
@@ -165,8 +160,8 @@ public class InventoryConfigRuleset {
 		return this.debugEnabled;
 	}
 
-	private Vector getKeywordVariants(String keyword) {
-		Vector variants = new Vector();
+	private Vector<String> getKeywordVariants(String keyword) {
+		Vector<String> variants = new Vector<>();
 		if(keyword.endsWith("es")) {
 			variants.add(keyword.substring(0, keyword.length() - 2));
 		}

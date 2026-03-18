@@ -17,8 +17,6 @@ import net.invtweaks.library.ContainerManager;
 import net.invtweaks.library.ContainerSectionManager;
 import net.invtweaks.library.Obfuscation;
 import net.invtweaks.logic.SortingHandler;
-import farn.invtweaksStapi.mixin.ContainerScreenAccessor;
-import farn.invtweaksStapi.mixin.ScreenAccessor;
 import net.invtweaks.tree.ItemTree;
 import net.minecraft.client.Minecraft;
 
@@ -207,8 +205,8 @@ public class InvTweaks extends Obfuscation {
 	}
 
 	public static boolean getIsMouseOverSlot(HandledScreen guiContainer, Slot slot, int i, int j) {
-		int k = (guiContainer.width - ((ContainerScreenAccessor)guiContainer).bgWidths()) / 2;
-		int l = (guiContainer.height - ((ContainerScreenAccessor)guiContainer).bgHeights()) / 2;
+		int k = (guiContainer.width - guiContainer.backgroundWidth) / 2;
+		int l = (guiContainer.height - guiContainer.backgroundHeight) / 2;
 		i -= k;
 		j -= l;
 		return i >= slot.x - 1 && i < slot.x + 16 + 1 && j >= slot.y - 1 && j < slot.y + 16 + 1;
@@ -354,8 +352,8 @@ public class InvTweaks extends Obfuscation {
 
 					for(int timestamp = 0; timestamp < slotCount; ++timestamp) {
 						Slot slot = this.getSlot(container, timestamp);
-						int e = (guiContainer.width - ((ContainerScreenAccessor)guiContainer).bgWidths()) / 2;
-						int l = (guiContainer.height - ((ContainerScreenAccessor)guiContainer).bgHeights()) / 2;
+						int e = (guiContainer.width - guiContainer.backgroundWidth) / 2;
+						int l = (guiContainer.height - guiContainer.backgroundHeight) / 2;
 						if(mouseX - e >= slot.x - 1 && mouseX - e < slot.x + 16 + 1 && mouseY - l >= slot.y - 1 && mouseY - l < slot.y + 16 + 1) {
 							target = timestamp < slotCount - 36 ? 1 : 2;
 							break;
@@ -397,13 +395,10 @@ public class InvTweaks extends Obfuscation {
 			byte w = 10;
 			byte h = 10;
 			boolean customButtonsAdded = false;
-			List<ButtonWidget> buttons = ((ScreenAccessor)guiScreen).getButtons();
-			Iterator id = ((ScreenAccessor)guiScreen).getButtons().iterator();
+			List<ButtonWidget> buttons= guiScreen.buttons;
 
-			while(id.hasNext()) {
-				Object guiContainer = id.next();
-				ButtonWidget x = (ButtonWidget) guiContainer;
-				if(x.id == 54696386) {
+			for(ButtonWidget button : buttons) {
+				if(button.id == 54696386) {
 					customButtonsAdded = true;
 					break;
 				}
@@ -415,8 +410,8 @@ public class InvTweaks extends Obfuscation {
 				} else {
 					HandledScreen guiContainer12 = (HandledScreen)guiScreen;
 					int i13 = 54696386;
-					int i14 = ((ContainerScreenAccessor)guiContainer12).bgWidths() / 2 + guiContainer12.width / 2 - 17;
-					int y = (guiContainer12.height - ((ContainerScreenAccessor)guiContainer12).bgHeights()) / 2 + 5;
+					int i14 = guiContainer12.backgroundWidth / 2 + guiContainer12.width / 2 - 17;
+					int y = (guiContainer12.height - guiContainer12.backgroundHeight) / 2 + 5;
 					buttons.add(new GuiInventorySettingsButton(this.cfgManager, i13++, i14 - 1, y, w, h, "...", "Inventory settings"));
 					if(!config.getProperty("showChestButtons").equals("false")) {
 						GuiSortingButton button = new GuiSortingButton(this.cfgManager, i13++, i14 - 13, y, w, h, "h", "Sort in rows", 2);
