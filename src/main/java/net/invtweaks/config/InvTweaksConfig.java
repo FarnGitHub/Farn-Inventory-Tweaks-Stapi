@@ -5,8 +5,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -22,6 +20,7 @@ import net.invtweaks.tree.ItemTree;
 import net.invtweaks.tree.ItemTreeLoader;
 import org.apache.logging.log4j.Logger;
 
+@SuppressWarnings("unused")
 public class InvTweaksConfig {
 	private static final Logger log = InvTweaksStapi.LOGGER;
 	public static final String PROP_ENABLE_MIDDLE_CLICK = "enableMiddleClick";
@@ -51,10 +50,10 @@ public class InvTweaksConfig {
 	private String treeFile;
 	private InvTweaksProperties properties;
 	private ItemTree tree;
-	private Vector rulesets;
+	private Vector<InventoryConfigRuleset> rulesets;
 	private int currentRuleset = 0;
 	private String currentRulesetName = null;
-	private Vector invalidKeywords;
+	private Vector<String> invalidKeywords;
 	private long storedConfigLastModified;
 
 	public InvTweaksConfig(String rulesFile, String treeFile) {
@@ -84,7 +83,7 @@ public class InvTweaksConfig {
 				String line = rulesetIndex[ruleset];
 				if(line.matches("^[\\w]*\\:$")) {
 					if(!defaultRuleset || !defaultRulesetEmpty) {
-						activeRuleset.finalize();
+						activeRuleset.resortInv();
 						this.rulesets.add(activeRuleset);
 					}
 
@@ -104,7 +103,7 @@ public class InvTweaksConfig {
 				}
 			}
 
-			activeRuleset.finalize();
+			activeRuleset.resortInv();
 			this.rulesets.add(activeRuleset);
 			this.currentRuleset = 0;
 			if(this.currentRulesetName != null) {

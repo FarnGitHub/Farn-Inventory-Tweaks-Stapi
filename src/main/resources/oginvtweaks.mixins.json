@@ -4,9 +4,8 @@
   "package": "farn.invtweaksStapi.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
-    "ScreenAccessor",
-    "ContainerScreenAccessor",
-    "MixinPlayerPickUp"
+    "MixinPlayerPickUp",
+    "MixinGameTick"
   ],
   "injectors": {
     "defaultRequire": 1

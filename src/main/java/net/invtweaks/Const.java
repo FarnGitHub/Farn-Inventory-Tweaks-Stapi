@@ -7,7 +7,7 @@ import net.invtweaks.library.Obfuscation;
 import net.minecraft.client.option.KeyBinding;
 import org.lwjgl.input.Keyboard;
 
-
+@SuppressWarnings("unused")
 public class Const {
 	public static final String MOD_VERSION = "1.31 (1.7.3)";
 	public static final int RULESET_SWAP_DELAY = 1000;
