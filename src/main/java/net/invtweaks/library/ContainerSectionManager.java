@@ -12,8 +12,8 @@ public class ContainerSectionManager {
 	private ContainerManager containerMgr;
 	private ContainerManager.ContainerSection section;
 
-	public ContainerSectionManager(Minecraft mc, ContainerManager.ContainerSection section) throws Exception {
-		this.containerMgr = new ContainerManager(mc);
+	public ContainerSectionManager(ContainerManager.ContainerSection section) throws Exception {
+		this.containerMgr = new ContainerManager();
 		this.section = section;
 		if(!this.containerMgr.hasSection(section)) {
 			throw new Exception("Section not available");
@@ -48,7 +48,7 @@ public class ContainerSectionManager {
 		this.containerMgr.click(this.section, index, rightClick);
 	}
 
-	public List getSlots() {
+	public List<Slot> getSlots() {
 		return this.containerMgr.getSlots(this.section);
 	}
 

@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
@@ -20,10 +19,9 @@ public class ContainerManager extends Obfuscation {
 	public static final int ACTION_TIMEOUT = 500;
 	public static final int POLLING_DELAY = 3;
 	private ScreenHandler container;
-	private Map slotRefs = new HashMap();
+	private Map<ContainerManager.ContainerSection, List<Slot>> slotRefs = new HashMap();
 
-	public ContainerManager(Minecraft mc) {
-		super(mc);
+	public ContainerManager() {
 		Screen currentScreen = this.getCurrentScreen();
 		if(currentScreen instanceof HandledScreen) {
 			this.container = this.getContainer((HandledScreen) currentScreen);
@@ -31,7 +29,7 @@ public class ContainerManager extends Obfuscation {
 			this.container = this.getPlayerContainer();
 		}
 
-		List slots = this.container.slots;
+		List<Slot> slots = this.container.slots;
 		int size = slots.size();
 		boolean guiWithInventory = true;
 		if(this.container instanceof PlayerScreenHandler) {
@@ -162,30 +160,27 @@ public class ContainerManager extends Obfuscation {
 		return this.slotRefs.containsKey(section);
 	}
 
-	public List getSlots(ContainerManager.ContainerSection section) {
-		return (List)this.slotRefs.get(section);
+	public List<Slot> getSlots(ContainerManager.ContainerSection section) {
+		return this.slotRefs.get(section);
 	}
 
 	public int getSize() {
 		int result = 0;
-
-		List slots;
-		for(Iterator i$ = this.slotRefs.values().iterator(); i$.hasNext(); result += slots.size()) {
-			slots = (List)i$.next();
+		for(List<Slot> slots : this.slotRefs.values()) {
+			result += slots.size();
 		}
 
 		return result;
 	}
 
 	public int getSize(ContainerManager.ContainerSection section) {
-		return this.hasSection(section) ? ((List)this.slotRefs.get(section)).size() : 0;
+		return this.hasSection(section) ? this.slotRefs.get(section).size() : 0;
 	}
 
 	public int getFirstEmptyIndex(ContainerManager.ContainerSection section) {
 		int i = 0;
 
-		for(Iterator i$ = ((List)this.slotRefs.get(section)).iterator(); i$.hasNext(); ++i) {
-			Slot slot = (Slot)i$.next();
+		for(Slot slot : this.slotRefs.get(section)) {
 			if(!slot.hasStack()) {
 				return i;
 			}
@@ -195,60 +190,41 @@ public class ContainerManager extends Obfuscation {
 	}
 
 	public boolean isSlotEmpty(ContainerManager.ContainerSection section, int slot) {
-		return this.hasSection(section) ? this.getItemStack(section, slot) == null : false;
+		return this.hasSection(section) && this.getItemStack(section, slot) == null;
 	}
 
 	public Slot getSlot(ContainerManager.ContainerSection section, int index) {
-		List slots = (List)this.slotRefs.get(section);
-		return slots != null ? (Slot)slots.get(index) : null;
+		List<Slot> slots = this.slotRefs.get(section);
+		return slots != null ? slots.get(index) : null;
 	}
 
 	public int getSlotIndex(int slotNumber) {
-		Iterator i$ = this.slotRefs.keySet().iterator();
-
-		while(true) {
-			ContainerManager.ContainerSection section;
-			do {
-				if(!i$.hasNext()) {
-					return -1;
+		for(ContainerManager.ContainerSection section : this.slotRefs.keySet()) {
+			if(section != ContainerManager.ContainerSection.INVENTORY) {
+				int i = 0;
+				for(Slot slot : this.slotRefs.get(section)) {
+					if(slot.id == slotNumber)
+						return i;
+					else
+						++i;
 				}
-
-				section = (ContainerManager.ContainerSection)i$.next();
-			} while(section == ContainerManager.ContainerSection.INVENTORY);
-
-			int i = 0;
-
-			for(Iterator i$1 = ((List)this.slotRefs.get(section)).iterator(); i$1.hasNext(); ++i) {
-				Slot slot = (Slot)i$1.next();
-				if(slot.id == slotNumber) {
-					return i;
-				}
+				break;
 			}
 		}
+		return -1;
 	}
 
 	public ContainerManager.ContainerSection getSlotSection(int slotNumber) {
-		Iterator i$ = this.slotRefs.keySet().iterator();
-
-		while(true) {
-			ContainerManager.ContainerSection section;
-			do {
-				if(!i$.hasNext()) {
-					return null;
-				}
-
-				section = (ContainerManager.ContainerSection)i$.next();
-			} while(section == ContainerManager.ContainerSection.INVENTORY);
-
-			Iterator i$1 = ((List)this.slotRefs.get(section)).iterator();
-
-			while(i$1.hasNext()) {
-				Slot slot = (Slot)i$1.next();
-				if(slot.id == slotNumber) {
-					return section;
+		for(ContainerManager.ContainerSection section : this.slotRefs.keySet()) {
+			if (section != ContainerManager.ContainerSection.INVENTORY) {
+				for (Slot slot : this.slotRefs.get(section)) {
+					if (slot.id == slotNumber) {
+						return section;
+					}
 				}
 			}
 		}
+		return null;
 	}
 
 	public ItemStack getItemStack(ContainerManager.ContainerSection section, int index) throws NullPointerException, IndexOutOfBoundsException {
@@ -261,19 +237,14 @@ public class ContainerManager extends Obfuscation {
 	}
 
 	private int getFirstEmptyUsableSlotNumber() {
-		Iterator i$ = this.slotRefs.keySet().iterator();
 
-		while(i$.hasNext()) {
-			ContainerManager.ContainerSection section = (ContainerManager.ContainerSection)i$.next();
-			Iterator i$1 = ((List)this.slotRefs.get(section)).iterator();
-
-			while(i$1.hasNext()) {
-				Slot slot = (Slot)i$1.next();
-				if(slot.getClass().equals(Slot.class) && !slot.hasStack()) {
-					return slot.id;
-				}
-			}
-		}
+        for (ContainerSection section : this.slotRefs.keySet()) {
+            for (Slot slot : this.slotRefs.get(section)) {
+                if (!slot.hasStack()) {
+                    return slot.id;
+                }
+            }
+        }
 
 		return -1;
 	}
@@ -282,7 +253,7 @@ public class ContainerManager extends Obfuscation {
 		if(index == -999) {
 			return -999;
 		} else if(this.hasSection(section)) {
-			Slot slot = (Slot)((List)this.slotRefs.get(section)).get(index);
+			Slot slot = this.slotRefs.get(section).get(index);
 			return slot != null ? slot.id : -1;
 		} else {
 			return -1;

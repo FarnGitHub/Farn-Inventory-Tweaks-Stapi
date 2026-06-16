@@ -35,8 +35,8 @@ import org.lwjgl.input.Mouse;
 
 public class InvTweaks extends Obfuscation {
 	private static final Logger log = InvTweaksStapi.LOGGER;
-	private static InvTweaks instance;
-	public InvTweaksConfigManager cfgManager = null;
+	public static final InvTweaks instance = new InvTweaks();
+	public InvTweaksConfigManager cfgManager = new InvTweaksConfigManager();
 	private int chestAlgorithm = 0;
 	private long chestAlgorithmClickTimestamp = 0L;
 	private boolean chestAlgorithmButtonDown = false;
@@ -49,17 +49,19 @@ public class InvTweaks extends Obfuscation {
 	private boolean mouseWasDown = false;
 	private int tickNumber = 0;
 	private int lastPollingTickNumber = -3;
+	public static boolean init = false;
 
-	public InvTweaks(Minecraft mc) {
-		super(mc);
-		instance = this;
-		this.cfgManager = new InvTweaksConfigManager(mc);
-		if(this.cfgManager.makeSureConfigurationIsLoaded()) {
+	private InvTweaks() {
+	}
+
+	public static void checkConfigLoad() {
+		if(init) return;
+		init = true;
+		if(InvTweaks.instance.cfgManager.makeSureConfigurationIsLoaded()) {
 			log.info("Mod initialized");
 		} else {
 			log.error("Mod failed to initialize!");
 		}
-
 	}
 
 	public final void onSortingKeyPressed() {
@@ -67,7 +69,7 @@ public class InvTweaks extends Obfuscation {
 			if(this.cfgManager.makeSureConfigurationIsLoaded()) {
 				Screen guiScreen = this.getCurrentScreen();
 				if(guiScreen == null || guiScreen instanceof HandledScreen) {
-					this.handleSorting((HandledScreen)guiScreen);
+					this.handleSorting(guiScreen);
 				}
 			}
 		}
@@ -78,7 +80,7 @@ public class InvTweaks extends Obfuscation {
 			InvTweaksConfig config = this.cfgManager.getConfig();
 			if(!this.cfgManager.getConfig().getProperty("enableSortingOnPickup").equals("false")) {
 				try {
-					ContainerSectionManager e = new ContainerSectionManager(this.mc, ContainerManager.ContainerSection.INVENTORY);
+					ContainerSectionManager e = new ContainerSectionManager(ContainerManager.ContainerSection.INVENTORY);
 					int currentSlot = -1;
 
 					do {
@@ -192,18 +194,6 @@ public class InvTweaks extends Obfuscation {
 		e.printStackTrace();
 	}
 
-	public static void logInGameStatic(String message) {
-		getInstance().logInGame(message);
-	}
-
-	public static void logInGameErrorStatic(String message, Exception e) {
-		getInstance().logInGameError(message, e);
-	}
-
-	public static InvTweaks getInstance() {
-		return instance;
-	}
-
 	public static boolean getIsMouseOverSlot(HandledScreen guiContainer, Slot slot, int i, int j) {
 		int k = (guiContainer.width - guiContainer.backgroundWidth) / 2;
 		int l = (guiContainer.height - guiContainer.backgroundHeight) / 2;
@@ -231,7 +221,7 @@ public class InvTweaks extends Obfuscation {
 					String previousRuleset = config.getCurrentRulesetName();
 					String newRuleset = config.switchConfig();
 					if(newRuleset == null) {
-						this.logInGameError("Failed to switch the configuration", (Exception)null);
+						this.logInGameError("Failed to switch the configuration", null);
 					} else if(!previousRuleset.equals(newRuleset)) {
 						this.logInGame("\'" + newRuleset + "\' enabled");
 						this.handleSorting(currentScreen);
@@ -299,7 +289,7 @@ public class InvTweaks extends Obfuscation {
 		}
 
 		try {
-			(new SortingHandler(this.mc, this.cfgManager.getConfig(), ContainerManager.ContainerSection.INVENTORY, 3)).sort();
+			(new SortingHandler(Minecraft.INSTANCE, this.cfgManager.getConfig(), ContainerManager.ContainerSection.INVENTORY, 3)).sort();
 		} catch (Exception exception8) {
 			this.logInGame("Failed to sort inventory: " + exception8.getMessage());
 		}
@@ -346,8 +336,8 @@ public class InvTweaks extends Obfuscation {
 					HandledScreen guiContainer = (HandledScreen)guiScreen;
 					ScreenHandler container = this.getContainer((HandledScreen)guiScreen);
 					int slotCount = this.getSlots(container).size();
-					int mouseX = Mouse.getEventX() * guiContainer.width / this.mc.displayWidth;
-					int mouseY = guiContainer.height - Mouse.getEventY() * guiContainer.height / this.mc.displayHeight - 1;
+					int mouseX = Mouse.getEventX() * guiContainer.width / Minecraft.INSTANCE.displayWidth;
+					int mouseY = guiContainer.height - Mouse.getEventY() * guiContainer.height / Minecraft.INSTANCE.displayHeight - 1;
 					int target = 0;
 
 					for(int timestamp = 0; timestamp < slotCount; ++timestamp) {
@@ -361,14 +351,14 @@ public class InvTweaks extends Obfuscation {
 					}
 
 					if(target == 1) {
-						this.mc.world.playSound(this.getThePlayer(), "random.click", 0.2F, 1.8F);
+						Minecraft.INSTANCE.world.playSound(this.getThePlayer(), "random.click", 0.2F, 1.8F);
 						long j14 = System.currentTimeMillis();
 						if(j14 - this.chestAlgorithmClickTimestamp > 3000L) {
 							this.chestAlgorithm = 0;
 						}
 
 						try {
-							(new SortingHandler(this.mc, this.cfgManager.getConfig(), ContainerManager.ContainerSection.CHEST, this.chestAlgorithm)).sort();
+							(new SortingHandler(Minecraft.INSTANCE, this.cfgManager.getConfig(), ContainerManager.ContainerSection.CHEST, this.chestAlgorithm)).sort();
 						} catch (Exception exception13) {
 							this.logInGameError("Failed to sort container", exception13);
 						}
@@ -489,7 +479,7 @@ public class InvTweaks extends Obfuscation {
 
 	private void playClick() {
 		if(!this.cfgManager.getConfig().getProperty("enableSortingSound").equals("false")) {
-			this.mc.world.playSound(this.getThePlayer(), "random.click", 0.2F, 1.8F);
+			Minecraft.INSTANCE.world.playSound(this.getThePlayer(), "random.click", 0.2F, 1.8F);
 		}
 
 	}

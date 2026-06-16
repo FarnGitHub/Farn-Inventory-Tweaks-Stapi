@@ -16,34 +16,28 @@ import net.invtweaks.InvTweaks;
 import farn.invtweaksStapi.InvTweaksStapi;
 import net.invtweaks.logic.AutoRefillHandler;
 import net.invtweaks.logic.ShortcutsHandler;
-import net.minecraft.client.Minecraft;
 import org.apache.logging.log4j.Logger;
 
 public class InvTweaksConfigManager {
 	private static final Logger log = InvTweaksStapi.LOGGER;
-	private Minecraft mc;
 	private InvTweaksConfig config = null;
 	private long storedConfigLastModified = 0L;
 	private AutoRefillHandler autoRefillHandler = null;
 	private ShortcutsHandler shortcutsHandler = null;
 
-	public InvTweaksConfigManager(Minecraft mc) {
-		this.mc = mc;
-	}
-
 	public boolean makeSureConfigurationIsLoaded() {
 		try {
 			if(this.config != null && this.config.refreshProperties()) {
-				this.shortcutsHandler = new ShortcutsHandler(this.mc, this.config);
-				InvTweaks.logInGameStatic("Mod properties loaded");
+				this.shortcutsHandler = new ShortcutsHandler(this.config);
+				InvTweaks.instance.logInGame("Mod properties loaded");
 			}
 		} catch (IOException iOException3) {
-			InvTweaks.logInGameErrorStatic("Failed to refresh properties from file", iOException3);
+			InvTweaks.instance.logInGameError("Failed to refresh properties from file", iOException3);
 		}
 
 		long configLastModified = this.computeConfigLastModified();
 		if(this.config != null) {
-			return this.storedConfigLastModified != configLastModified ? this.loadConfig() : true;
+			return this.storedConfigLastModified == configLastModified || this.loadConfig();
 		} else {
 			this.storedConfigLastModified = configLastModified;
 			return this.loadConfig();
@@ -84,11 +78,11 @@ public class InvTweaksConfigManager {
 		}
 
 		if(!(new File(Const.CONFIG_RULES_FILE)).exists() && this.extractFile("/net/invtweaks/DefaultConfig.dat", Const.CONFIG_RULES_FILE)) {
-			InvTweaks.logInGameStatic(Const.CONFIG_RULES_FILE + " missing, creating default one.");
+			InvTweaks.instance.logInGame(Const.CONFIG_RULES_FILE + " missing, creating default one.");
 		}
 
 		if(!(new File(Const.CONFIG_TREE_FILE)).exists() && this.extractFile("/net/invtweaks/DefaultTree.dat", Const.CONFIG_TREE_FILE)) {
-			InvTweaks.logInGameStatic(Const.CONFIG_TREE_FILE + " missing, creating default one.");
+			InvTweaks.instance.logInGame(Const.CONFIG_TREE_FILE + " missing, creating default one.");
 		}
 
 		this.storedConfigLastModified = this.computeConfigLastModified();
@@ -97,13 +91,13 @@ public class InvTweaksConfigManager {
 		try {
 			if(this.config == null) {
 				this.config = new InvTweaksConfig(Const.CONFIG_RULES_FILE, Const.CONFIG_TREE_FILE);
-				this.autoRefillHandler = new AutoRefillHandler(this.mc, this.config);
-				this.shortcutsHandler = new ShortcutsHandler(this.mc, this.config);
+				this.autoRefillHandler = new AutoRefillHandler(this.config);
+				this.shortcutsHandler = new ShortcutsHandler(this.config);
 			}
 
 			this.config.load();
 			this.shortcutsHandler.reset();
-			InvTweaks.logInGameStatic("Configuration loaded");
+			InvTweaks.instance.logInGame("Configuration loaded");
 			this.showConfigErrors(this.config);
 		} catch (FileNotFoundException fileNotFoundException3) {
 			error = "Config file not found";
@@ -112,7 +106,7 @@ public class InvTweaksConfigManager {
 		}
 
 		if(error != null) {
-			InvTweaks.logInGameStatic(error);
+			InvTweaks.instance.logInGame(error);
 			log.error(error);
 			this.config = null;
 			return false;
@@ -195,12 +189,12 @@ public class InvTweaksConfigManager {
 				fileWriter19.close();
 				return true;
 			} catch (IOException iOException15) {
-				InvTweaks.logInGameStatic("The mod won\'t work, because " + destination + " creation failed!");
+				InvTweaks.instance.logInGame("The mod won\'t work, because " + destination + " creation failed!");
 				log.error("Cannot create " + destination + " file: " + iOException15.getMessage());
 				return false;
 			}
 		} else {
-			InvTweaks.logInGameStatic("The mod won\'t work, because " + resource + " could not be found!");
+			InvTweaks.instance.logInGame("The mod won\'t work, because " + resource + " could not be found!");
 			log.error("Cannot create " + destination + " file: " + resource + " not found");
 			return false;
 		}
@@ -216,7 +210,7 @@ public class InvTweaksConfigManager {
 				keyword = (String)i$.next();
 			}
 
-			InvTweaks.logInGameStatic(error);
+			InvTweaks.instance.logInGame(error);
 		}
 
 	}

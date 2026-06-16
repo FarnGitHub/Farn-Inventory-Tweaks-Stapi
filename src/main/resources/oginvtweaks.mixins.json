@@ -4,8 +4,10 @@
   "package": "farn.invtweaksStapi.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
-    "MixinPlayerPickUp",
-    "MixinGameTick"
+    "MixinItemEntity",
+    "MixinGameRenderer",
+    "MixinMinecraft",
+    "MixinScreen"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -17,6 +17,7 @@ import net.invtweaks.Const;
 import net.invtweaks.InvTweaks;
 import farn.invtweaksStapi.InvTweaksStapi;
 import net.invtweaks.tree.ItemTree;
+import net.invtweaks.tree.ItemTreeItem;
 import net.invtweaks.tree.ItemTreeLoader;
 import org.apache.logging.log4j.Logger;
 
@@ -120,7 +121,7 @@ public class InvTweaksConfig {
 
 			if(this.currentRuleset == 0) {
 				if(!this.rulesets.isEmpty()) {
-					this.currentRulesetName = ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).getName();
+					this.currentRulesetName = this.rulesets.get(this.currentRuleset).getName();
 				} else {
 					this.currentRulesetName = null;
 				}
@@ -150,21 +151,18 @@ public class InvTweaksConfig {
 				e.close();
 				this.storedConfigLastModified = (new File(Const.CONFIG_PROPS_FILE)).lastModified();
 			} catch (IOException iOException3) {
-				InvTweaks.logInGameStatic("Failed to save config file " + Const.CONFIG_PROPS_FILE);
+				InvTweaks.instance.logInGame("Failed to save config file " + Const.CONFIG_PROPS_FILE);
 			}
 		}
 
 	}
 
-	public Map getProperties(String prefix) {
-		HashMap result = new HashMap();
-		Iterator i$ = this.properties.keySet().iterator();
+	public Map<String, String> getProperties(String prefix) {
+		HashMap<String, String> result = new HashMap<>();
 
-		while(i$.hasNext()) {
-			Object o = i$.next();
-			String key = (String)o;
-			if(key.startsWith(prefix)) {
-				result.put(key, this.properties.getProperty(key));
+		for(Object key: this.properties.keySet()) {
+			if(key instanceof String str && str.startsWith(prefix)) {
+				result.put(str, this.properties.getProperty(str));
 			}
 		}
 
@@ -192,7 +190,7 @@ public class InvTweaksConfig {
 	public String switchConfig(int i) {
 		if(!this.rulesets.isEmpty() && i < this.rulesets.size()) {
 			this.currentRuleset = i;
-			this.currentRulesetName = ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).getName();
+			this.currentRulesetName = this.rulesets.get(this.currentRuleset).getName();
 			return this.currentRulesetName;
 		} else {
 			return null;
@@ -203,58 +201,50 @@ public class InvTweaksConfig {
 		return this.currentRuleset == -1 ? this.switchConfig(0) : this.switchConfig((this.currentRuleset + 1) % this.rulesets.size());
 	}
 
-	public Vector getRules() {
-		return ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).getRules();
+	public Vector<SortingRule> getRules() {
+		return this.rulesets.get(this.currentRuleset).getRules();
 	}
 
-	public Vector getInvalidKeywords() {
+	public Vector<String> getInvalidKeywords() {
 		return this.invalidKeywords;
 	}
 
 	public int[] getLockPriorities() {
-		return ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).getLockPriorities();
+		return this.rulesets.get(this.currentRuleset).getLockPriorities();
 	}
 
 	public boolean[] getFrozenSlots() {
-		return ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).getFrozenSlots();
+		return this.rulesets.get(this.currentRuleset).getFrozenSlots();
 	}
 
-	public Vector getLockedSlots() {
-		return ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).getLockedSlots();
+	public Vector<Integer> getLockedSlots() {
+		return this.rulesets.get(this.currentRuleset).getLockedSlots();
 	}
 
 	public Level getLogLevel() {
-		return ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).isDebugEnabled() ? Level.INFO : Level.WARNING;
+		return this.rulesets.get(this.currentRuleset).isDebugEnabled() ? Level.INFO : Level.WARNING;
 	}
 
 	public boolean isAutoRefillEnabled(int itemID, int itemDamage) {
-		List items = this.tree.getItems(itemID, itemDamage);
-		Vector autoReplaceRules = ((InventoryConfigRuleset)this.rulesets.get(this.currentRuleset)).getAutoReplaceRules();
+		List<ItemTreeItem> items = this.tree.getItems(itemID, itemDamage);
+		Vector<String> autoReplaceRules = this.rulesets.get(this.currentRuleset).getAutoReplaceRules();
 		boolean found = false;
-		Iterator i$ = autoReplaceRules.iterator();
 
-		while(i$.hasNext()) {
-			String keyword = (String)i$.next();
-			if(keyword.equals("nothing")) {
-				return false;
-			}
+        for (String keyword : autoReplaceRules) {
+            if (keyword.equals("nothing")) {
+                return false;
+            }
 
-			if(this.tree.matches(items, keyword)) {
-				found = true;
-			}
-		}
+            if (this.tree.matches(items, keyword)) {
+                found = true;
+            }
+        }
 
-		if(found) {
-			return true;
-		} else if(autoReplaceRules.isEmpty()) {
-			return true;
-		} else {
-			return false;
-		}
+		return found || autoReplaceRules.isEmpty();
 	}
 
 	private void reset() {
-		this.rulesets = new Vector();
+		this.rulesets = new Vector<>();
 		this.currentRuleset = -1;
 		this.properties = new InvTweaksProperties();
 		this.properties.put("enableMiddleClick", "true");
@@ -269,7 +259,7 @@ public class InvTweaksConfig {
 		this.properties.put("shortcutKeyToUpperSection", "UP");
 		this.properties.put("shortcutKeyToLowerSection", "DOWN");
 		this.properties.put("shortcutKeyDrop", "LALT, RALT");
-		this.invalidKeywords = new Vector();
+		this.invalidKeywords = new Vector<>();
 	}
 
 	private void loadProperties() throws IOException {
@@ -290,7 +280,7 @@ public class InvTweaksConfig {
 		}
 
 		if(this.properties.contains("enableAutoreplaceSound")) {
-			this.properties.put("enableAutoRefillSound", (String)this.properties.get("enableAutoreplaceSound"));
+			this.properties.put("enableAutoRefillSound", this.properties.get("enableAutoreplaceSound"));
 			this.properties.remove("enableAutoreplaceSound");
 		}
 
@@ -302,7 +292,7 @@ public class InvTweaksConfig {
 			try {
 				configPropsFile.createNewFile();
 			} catch (IOException iOException3) {
-				InvTweaks.logInGameStatic("Failed to create the config file " + Const.CONFIG_PROPS_FILE);
+				InvTweaks.instance.logInGame("Failed to create the config file " + Const.CONFIG_PROPS_FILE);
 				return null;
 			}
 		}

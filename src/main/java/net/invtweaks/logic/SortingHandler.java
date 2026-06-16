@@ -40,14 +40,13 @@ public class SortingHandler extends Obfuscation {
 	private int algorithm;
 	private int size;
 	private ItemTree tree;
-	private Vector rules;
+	private Vector<SortingRule> rules;
 	private int[] rulePriority;
 	private int[] keywordOrder;
 	private int[] lockPriorities;
 	private boolean[] frozenSlots;
 
 	public SortingHandler(Minecraft mc, InvTweaksConfig config, ContainerManager.ContainerSection section, int algorithm) throws Exception {
-		super(mc);
 		int i;
 		if(DEFAULT_LOCK_PRIORITIES == null) {
 			DEFAULT_LOCK_PRIORITIES = new int[100];
@@ -65,7 +64,7 @@ public class SortingHandler extends Obfuscation {
 			}
 		}
 
-		this.containerMgr = new ContainerSectionManager(mc, section);
+		this.containerMgr = new ContainerSectionManager(section);
 		this.size = this.containerMgr.getSize();
 		this.rules = config.getRules();
 		this.tree = config.getTree();
@@ -99,7 +98,7 @@ public class SortingHandler extends Obfuscation {
 
 	public void sort() throws TimeoutException {
 		long timer = System.nanoTime();
-		ContainerManager globalContainer = new ContainerManager(this.mc);
+		ContainerManager globalContainer = new ContainerManager();
 		if(this.isMultiplayerWorld()) {
 			this.putHoldItemDown();
 		}

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "og_invtweak",
   "version": "${version}",
-  "name": "Inventory Tweaks: StationAPI",
-  "description": "A Unofficial port of JimeoWan's Inventory Tweaks v1.31 to StationAPI",
+  "name": "Inventory Tweaks: Babric",
+  "description": "A Unofficial port of JimeoWan's Inventory Tweaks v1.31 to Babric",
   "authors": [
     "JimeoWan",
     "farnfarn02"
@@ -13,9 +13,6 @@
   "icon": "net/invtweaks/icon.png",
   "environment": "client",
   "entrypoints": {
-    "stationapi:event_bus_client": [
-      "farn.invtweaksStapi.InvTweaksStapi"
-    ],
     "modmenu": [
       "farn.invtweaksStapi.compat.ModMenuCompat"
     ]
@@ -24,7 +21,6 @@
     "oginvtweaks.mixins.json"
   ],
   "depends": {
-    "minecraft": "1.0.0-beta.7.3",
-    "stationapi": "*"
+    "minecraft": "1.0.0-beta.7.3"
   }
 }

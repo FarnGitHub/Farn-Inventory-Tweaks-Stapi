@@ -4,14 +4,15 @@ import net.danygames2014.modmenu.api.ConfigScreenFactory;
 import net.danygames2014.modmenu.api.ModMenuApi;
 import net.invtweaks.InvTweaks;
 import net.invtweaks.gui.GuiInventorySettings;
+import net.minecraft.client.Minecraft;
 
 public class ModMenuCompat implements ModMenuApi {
 
     public ConfigScreenFactory<GuiInventorySettings> getModConfigScreenFactory() {
         return screen -> new GuiInventorySettings(
-                InvTweaks.getInstance().mc,
+                Minecraft.INSTANCE,
                 screen,
-                InvTweaks.getInstance().cfgManager.getConfig()
+                InvTweaks.instance.cfgManager.getConfig()
         );
     }
 }

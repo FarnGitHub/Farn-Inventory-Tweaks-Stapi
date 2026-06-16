@@ -18,32 +18,27 @@ import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 
 public class Obfuscation {
-	public Minecraft mc;
-
-	public Obfuscation(Minecraft mc) {
-		this.mc = mc;
-	}
 
 	protected void addChatMessage(String message) {
-		if(this.mc.inGameHud != null) {
-			this.mc.inGameHud.addChatMessage(message);
+		if(Minecraft.INSTANCE.inGameHud != null) {
+			Minecraft.INSTANCE.inGameHud.addChatMessage(message);
 		}
 	}
 
 	protected boolean isMultiplayerWorld() {
-		return this.mc.isWorldRemote();
+		return Minecraft.INSTANCE.isWorldRemote();
 	}
 
 	protected PlayerEntity getThePlayer() {
-		return this.mc.player;
+		return Minecraft.INSTANCE.player;
 	}
 
 	protected InteractionManager getPlayerController() {
-		return this.mc.interactionManager;
+		return Minecraft.INSTANCE.interactionManager;
 	}
 
 	protected Screen getCurrentScreen() {
-		return this.mc.currentScreen;
+		return Minecraft.INSTANCE.currentScreen;
 	}
 
 	protected PlayerInventory getInventoryPlayer() {
@@ -165,11 +160,11 @@ public class Obfuscation {
 		return absolutePath.endsWith(".") ? absolutePath.substring(0, absolutePath.length() - 1) : (absolutePath.endsWith(File.separator) ? absolutePath : absolutePath + File.separatorChar);
 	}
 
-	public static ItemStack getHoldStackStatic(Minecraft mc) {
-		return (new Obfuscation(mc)).getHoldStack();
+	public static ItemStack getHoldStackStatic() {
+		return Minecraft.INSTANCE.player.getHand();
 	}
 
-	public static Screen getCurrentScreenStatic(Minecraft mc) {
-		return (new Obfuscation(mc)).getCurrentScreen();
+	public static Screen getCurrentScreenStatic() {
+		return Minecraft.INSTANCE.currentScreen;
 	}
 }

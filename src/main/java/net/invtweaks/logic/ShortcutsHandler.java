@@ -33,8 +33,7 @@ public class ShortcutsHandler extends Obfuscation {
 	private Map shortcutKeysStatus;
 	private Map shortcuts;
 
-	public ShortcutsHandler(Minecraft mc, InvTweaksConfig config) {
-		super(mc);
+	public ShortcutsHandler(InvTweaksConfig config) {
 		this.config = config;
 		this.reset();
 	}
@@ -87,8 +86,8 @@ public class ShortcutsHandler extends Obfuscation {
 						}
 					}
 
-					int i11 = this.mc.options.forwardKey.code;
-					int i12 = this.mc.options.backKey.code;
+					int i11 = Minecraft.INSTANCE.options.forwardKey.code;
+					int i12 = Minecraft.INSTANCE.options.backKey.code;
 					((List)this.shortcuts.get(ShortcutType.MOVE_UP)).add(i11);
 					((List)this.shortcuts.get(ShortcutType.MOVE_DOWN)).add(i12);
 					this.shortcutKeysStatus.put(i11, false);
@@ -132,8 +131,8 @@ public class ShortcutsHandler extends Obfuscation {
 		this.updateKeyStatuses();
 		int ex = Mouse.getEventX();
 		int ey = Mouse.getEventY();
-		int x = ex * guiScreen.width / this.mc.displayWidth;
-		int y = guiScreen.height - ey * guiScreen.height / this.mc.displayHeight - 1;
+		int x = ex * guiScreen.width / Minecraft.INSTANCE.displayWidth;
+		int y = guiScreen.height - ey * guiScreen.height / Minecraft.INSTANCE.displayHeight - 1;
 		boolean shortcutValid = false;
 		Slot slot = this.getSlotAtPosition(guiScreen, x, y);
 		if(slot != null && slot.hasStack()) {
@@ -152,7 +151,7 @@ public class ShortcutsHandler extends Obfuscation {
 			}
 
 			try {
-				ContainerManager e = new ContainerManager(this.mc);
+				ContainerManager e = new ContainerManager();
 				ContainerManager.ContainerSection srcSection = e.getSlotSection(slot.id);
 				ContainerManager.ContainerSection destSection = null;
 				Vector availableSections = new Vector();
@@ -218,7 +217,7 @@ public class ShortcutsHandler extends Obfuscation {
 					Mouse.setCursorPosition(ex, ey);
 				}
 			} catch (Exception exception16) {
-				InvTweaks.logInGameErrorStatic("Failed to trigger shortcut", exception16);
+				InvTweaks.instance.logInGameError("Failed to trigger shortcut", exception16);
 			}
 		}
 
@@ -286,7 +285,7 @@ public class ShortcutsHandler extends Obfuscation {
 	}
 
 	private boolean haveControlsChanged() {
-		return !this.shortcutKeysStatus.containsKey(this.mc.options.forwardKey.code) || !this.shortcutKeysStatus.containsKey(this.mc.options.backKey.code);
+		return !this.shortcutKeysStatus.containsKey(Minecraft.INSTANCE.options.forwardKey.code) || !this.shortcutKeysStatus.containsKey(Minecraft.INSTANCE.options.backKey.code);
 	}
 
 	private void updateKeyStatuses() {
@@ -360,7 +359,7 @@ public class ShortcutsHandler extends Obfuscation {
 	}
 
 	private void initAction(int fromSlot, ShortcutType shortcutType, ContainerManager.ContainerSection destSection) throws Exception {
-		this.container = new ContainerManager(this.mc);
+		this.container = new ContainerManager();
 		this.fromSection = this.container.getSlotSection(fromSlot);
 		this.fromIndex = this.container.getSlotIndex(fromSlot);
 		this.fromStack = this.container.getItemStack(this.fromSection, this.fromIndex);

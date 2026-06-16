@@ -1,17 +1,15 @@
 package net.invtweaks.tree;
 
 import net.invtweaks.library.Obfuscation;
-import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 
-public class ItemTreeItem extends Obfuscation implements Comparable {
-	private String name;
-	private int id;
-	private int damage;
-	private int order;
+public class ItemTreeItem extends Obfuscation implements Comparable<ItemTreeItem> {
+	private final String name;
+	private final int id;
+	private final int damage;
+	private final int order;
 
 	public ItemTreeItem(String name, int id, int damage, int order) {
-		super((Minecraft)null);
 		this.name = name;
 		this.id = id;
 		this.damage = damage;
@@ -34,13 +32,13 @@ public class ItemTreeItem extends Obfuscation implements Comparable {
 		return this.order;
 	}
 
+	@SuppressWarnings("unused")
 	public boolean matchesStack(ItemStack stack) {
 		return this.getItemID(stack) == this.id && (this.getMaxStackSize(stack) == 1 || this.getItemDamage(stack) == this.damage);
 	}
 
 	public boolean equals(Object o) {
-		if(o != null && o instanceof ItemTreeItem) {
-			ItemTreeItem item = (ItemTreeItem)o;
+		if(o instanceof ItemTreeItem item) {
 			return this.id == item.getId() && (this.damage == -1 || this.damage == item.getDamage());
 		} else {
 			return false;
@@ -53,9 +51,5 @@ public class ItemTreeItem extends Obfuscation implements Comparable {
 
 	public int compareTo(ItemTreeItem item) {
 		return item.order - this.order;
-	}
-
-	public int compareTo(Object x0) {
-		return this.compareTo((ItemTreeItem)x0);
 	}
 }

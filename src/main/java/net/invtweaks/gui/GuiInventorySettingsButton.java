@@ -28,8 +28,8 @@ public class GuiInventorySettingsButton extends GuiIconButton {
 			return false;
 		} else {
 			try {
-				ContainerSectionManager containerMgr = new ContainerSectionManager(minecraft, ContainerManager.ContainerSection.INVENTORY);
-				if(Obfuscation.getHoldStackStatic(minecraft) != null) {
+				ContainerSectionManager containerMgr = new ContainerSectionManager(ContainerManager.ContainerSection.INVENTORY);
+				if(Obfuscation.getHoldStackStatic() != null) {
 					try {
 						for(int e = containerMgr.getSize() - 1; e >= 0; --e) {
 							if(containerMgr.getItemStack(e) == null) {
@@ -38,15 +38,15 @@ public class GuiInventorySettingsButton extends GuiIconButton {
 							}
 						}
 					} catch (TimeoutException timeoutException7) {
-						InvTweaks.logInGameErrorStatic("Failed to put item down", timeoutException7);
+						InvTweaks.instance.logInGameError("Failed to put item down", timeoutException7);
 					}
 				}
 			} catch (Exception exception8) {
-				InvTweaks.logInGameErrorStatic("Failed to set up settings button", exception8);
+				InvTweaks.instance.logInGameError("Failed to set up settings button", exception8);
 			}
 
 			this.cfgManager.makeSureConfigurationIsLoaded();
-			minecraft.setScreen(new GuiInventorySettings(minecraft, Obfuscation.getCurrentScreenStatic(minecraft), config));
+			minecraft.setScreen(new GuiInventorySettings(minecraft, Obfuscation.getCurrentScreenStatic(), config));
 			return true;
 		}
 	}

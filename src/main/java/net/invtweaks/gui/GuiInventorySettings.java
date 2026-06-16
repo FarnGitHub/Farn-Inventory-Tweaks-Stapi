@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.util.Point;
 
 public class GuiInventorySettings extends Screen {
@@ -38,6 +39,8 @@ public class GuiInventorySettings extends Screen {
 	private Minecraft b;
 	private Screen parentScreen;
 	private InvTweaksConfig config;
+	private boolean selectSortingKey = false;
+	private ButtonWidget sortingButton;
 
 	public GuiInventorySettings(Minecraft mc, Screen parentScreen, InvTweaksConfig config) {
 		this.b = mc;
@@ -46,13 +49,13 @@ public class GuiInventorySettings extends Screen {
 	}
 
 	public void init() {
-		LinkedList controlList = new LinkedList();
+		LinkedList<ButtonWidget> controlList = new LinkedList<>();
 		Point p = new Point();
 		byte i = 0;
 		this.moveToButtonCoords(1, p);
 		controlList.add(new ButtonWidget(100, p.getX() + 55, this.height / 6 + 96, "Open the sorting rules file..."));
 		controlList.add(new ButtonWidget(101, p.getX() + 55, this.height / 6 + 120, "Open the item tree file..."));
-		controlList.add(new ButtonWidget(102, p.getX() + 55, this.height / 6 + 144, "Open help in browser..."));
+		controlList.add(sortingButton = new ButtonWidget(102, p.getX() + 55, this.height / 6 + 144, computeSortingKeyLabel()));
 		controlList.add(new ButtonWidget(200, p.getX() + 55, this.height / 6 + 168, "Done"));
 		String middleClick = this.config.getProperty("enableMiddleClick");
 		int i12 = i + 1;
@@ -78,7 +81,7 @@ public class GuiInventorySettings extends Screen {
 		this.moveToButtonCoords(i12++, p);
 		controlList.add(new GuiTooltipButton(2, p.getX(), p.getY(), this.computeBooleanButtonLabel("showChestButtons", "Chest buttons"), "Adds three buttons\non chests to sort them"));
 		if(!Desktop.isDesktopSupported()) {
-			Iterator i$ = controlList.iterator();
+			Iterator<ButtonWidget> i$ = controlList.iterator();
 
 			label29:
 			while(true) {
@@ -88,9 +91,8 @@ public class GuiInventorySettings extends Screen {
 						break label29;
 					}
 
-					ButtonWidget o = (ButtonWidget)i$.next();
-					button = (ButtonWidget)o;
-				} while(button.id != 100 && button.id >= 101);
+					button = i$.next();
+				} while(button.id >= 101);
 
 				button.active = false;
 			}
@@ -103,6 +105,15 @@ public class GuiInventorySettings extends Screen {
 		this.renderBackground();
 		this.drawCenteredTextWithShadow(this.textRenderer, "InventoryTweaks settings", this.width / 2, 20, 0xFFFFFF);
 		super.render(i, j, f);
+	}
+
+	protected void keyPressed(char character, int keyCode) {
+		super.keyPressed(character, keyCode);
+		if(sortingButton != null && selectSortingKey) {
+			selectSortingKey = false;
+			Const.SORT_KEY_BINDING.code = keyCode;
+			sortingButton.text = computeSortingKeyLabel();
+		}
 	}
 
 	protected void buttonClicked(ButtonWidget guibutton) {
@@ -126,22 +137,19 @@ public class GuiInventorySettings extends Screen {
 			try {
 				Desktop.getDesktop().open(new File(Const.CONFIG_RULES_FILE));
 			} catch (Exception exception5) {
-				InvTweaks.logInGameErrorStatic("Failed to open rules file", exception5);
+				InvTweaks.instance.logInGameError("Failed to open rules file", exception5);
 			}
 			break;
 		case 101:
 			try {
 				Desktop.getDesktop().open(new File(Const.CONFIG_TREE_FILE));
 			} catch (Exception exception4) {
-				InvTweaks.logInGameErrorStatic("Failed to open tree file", exception4);
+				InvTweaks.instance.logInGameError("Failed to open tree file", exception4);
 			}
 			break;
 		case 102:
-			try {
-				Desktop.getDesktop().browse((new URL("http://wan.ka.free.fr/?invtweaks")).toURI());
-			} catch (Exception exception3) {
-				InvTweaks.logInGameErrorStatic("Failed to open help", exception3);
-			}
+			selectSortingKey = true;
+			guibutton.text = computeSortingKeyLabel();
 			break;
 		case 200:
 			this.b.setScreen(this.parentScreen);
@@ -168,5 +176,11 @@ public class GuiInventorySettings extends Screen {
 			boolean enabled = Boolean.parseBoolean(propertyValue);
 			return label + (enabled ? ": ON" : ": OFF");
 		}
+	}
+
+	private String computeSortingKeyLabel() {
+		String keyName = Keyboard.getKeyName(Const.SORT_KEY_BINDING.code);
+		if(selectSortingKey) keyName = "> " + keyName + " <";
+		return "Sorting Key: " + keyName;
 	}
 }

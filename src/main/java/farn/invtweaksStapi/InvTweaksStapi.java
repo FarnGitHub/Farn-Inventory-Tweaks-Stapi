@@ -1,47 +1,30 @@
 package farn.invtweaksStapi;
 
-import net.fabricmc.loader.api.FabricLoader;
 import net.invtweaks.Const;
 import net.invtweaks.InvTweaks;
-import net.mine_diver.unsafeevents.listener.EventListener;
-import net.mine_diver.unsafeevents.listener.ListenerPriority;
 import net.minecraft.client.Minecraft;
-import net.modificationstation.stationapi.api.client.event.keyboard.KeyStateChangedEvent;
-import net.modificationstation.stationapi.api.client.event.option.KeyBindingRegisterEvent;
-import net.modificationstation.stationapi.api.event.init.InitFinishedEvent;
-import net.modificationstation.stationapi.api.util.Namespace;
-import net.modificationstation.stationapi.api.util.Null;
-import net.modificationstation.stationapi.api.mod.entrypoint.Entrypoint;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
 
 public class InvTweaksStapi {
 
-    @Entrypoint.Namespace
-    public static Namespace NAMESPACE;
+    public static Logger LOGGER = LogManager.getLogger("InvTweaks");
 
-    @Entrypoint.Logger
-    public static Logger LOGGER = Null.get();
-
-    public static InvTweaks instance;
-
-    @EventListener
-    public void pressKey(KeyStateChangedEvent event) {
-        if(instance != null  && instance.mc.world != null &&
-                Keyboard.getEventKeyState() &&
-                Keyboard.getEventKey() == Const.SORT_KEY_BINDING.code) {
-            instance.onSortingKeyPressed();
+    public static void pressKey() {
+        if(Keyboard.getEventKeyState() && Keyboard.getEventKey() == Const.SORT_KEY_BINDING.code) {
+            InvTweaks.instance.onSortingKeyPressed();
         }
     }
 
-    @EventListener
-    public void registerKey(KeyBindingRegisterEvent event) {
-        event.keyBindings.add(Const.SORT_KEY_BINDING);
-    }
+    public static void tickGame() {
+        InvTweaks.checkConfigLoad();
 
-    @EventListener(priority = ListenerPriority.LOW)
-    public void init(InitFinishedEvent event) {
-        instance = new InvTweaks(Minecraft.INSTANCE);
+        if(Minecraft.INSTANCE.currentScreen != null)
+            InvTweaks.instance.onTickInGUI(Minecraft.INSTANCE.currentScreen);
+
+        if(Minecraft.INSTANCE.world != null)
+            InvTweaks.instance.onTickInGame();
     }
 
 }

@@ -7,9 +7,9 @@ import javax.xml.parsers.SAXParserFactory;
 
 import net.invtweaks.InvTweaks;
 import org.xml.sax.Attributes;
-import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+@SuppressWarnings("unused")
 public class ItemTreeLoader extends DefaultHandler {
 	private static final String ATTR_RANGE_MIN = "min";
 	private static final String ATTR_RANGE_MAX = "max";
@@ -17,7 +17,7 @@ public class ItemTreeLoader extends DefaultHandler {
 	private static final String ATTR_DAMAGE = "damage";
 	private ItemTree tree = new ItemTree();
 	private int itemOrder = 0;
-	private LinkedList categoryStack = new LinkedList();
+	private LinkedList<String> categoryStack = new LinkedList<>();
 
 	public ItemTree load(String filePath) throws Exception {
 		this.tree.reset();
@@ -26,13 +26,13 @@ public class ItemTreeLoader extends DefaultHandler {
 		SAXParser parser = parserFactory.newSAXParser();
 		parser.parse(new File(filePath), this);
 		if(!this.categoryStack.isEmpty()) {
-			InvTweaks.logInGameStatic("Warning: The tree file seems to be broken (is \'" + (String)this.categoryStack.getLast() + "\' closed correctly?)");
+			InvTweaks.instance.logInGame("Warning: The tree file seems to be broken (is " + this.categoryStack.getLast() + " closed correctly?)");
 		}
 
 		return this.tree;
 	}
 
-	public void startElement(String uri, String localName, String name, Attributes attributes) throws SAXException {
+	public void startElement(String uri, String localName, String name, Attributes attributes) {
 		String rangeMinAttr = attributes.getValue("min");
 		int id;
 		int damage;
@@ -43,12 +43,12 @@ public class ItemTreeLoader extends DefaultHandler {
 				damage = Integer.parseInt(attributes.getValue("damage"));
 			}
 
-			this.tree.addItem((String)this.categoryStack.getLast(), new ItemTreeItem(name.toLowerCase(), id, damage, this.itemOrder++));
+			this.tree.addItem(this.categoryStack.getLast(), new ItemTreeItem(name.toLowerCase(), id, damage, this.itemOrder++));
 		} else {
 			if(this.categoryStack.isEmpty()) {
 				this.tree.setRootCategory(new ItemTreeCategory(name));
 			} else {
-				this.tree.addCategory((String)this.categoryStack.getLast(), new ItemTreeCategory(name));
+				this.tree.addCategory(this.categoryStack.getLast(), new ItemTreeCategory(name));
 			}
 
 			if(rangeMinAttr != null) {
@@ -65,7 +65,7 @@ public class ItemTreeLoader extends DefaultHandler {
 
 	}
 
-	public void endElement(String uri, String localName, String name) throws SAXException {
+	public void endElement(String uri, String localName, String name) {
 		if(name.equals(this.categoryStack.getLast())) {
 			this.categoryStack.removeLast();
 		}

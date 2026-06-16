@@ -3,16 +3,14 @@ package net.invtweaks.tree;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
-import java.util.logging.Logger;
 
 public class ItemTreeCategory {
-	private final Map items = new HashMap();
-	private final Vector matchingItems = new Vector();
-	private final Vector subCategories = new Vector();
+	private final Map<Integer, List<ItemTreeItem>> items = new HashMap<>();
+	private final Vector<String> matchingItems = new Vector<>();
+	private final Vector<ItemTreeCategory> subCategories = new Vector<>();
 	private String name;
 	private int order = -1;
 
@@ -21,29 +19,20 @@ public class ItemTreeCategory {
 	}
 
 	public boolean contains(ItemTreeItem item) {
-		List storedItems = (List)this.items.get(item.getId());
-		Iterator i$;
+		List<ItemTreeItem> storedItems = this.items.get(item.getId());
 		if(storedItems != null) {
-			i$ = storedItems.iterator();
-
-			while(i$.hasNext()) {
-				ItemTreeItem category = (ItemTreeItem)i$.next();
-				if(category.equals(item)) {
-					return true;
-				}
-			}
+            for (ItemTreeItem category : storedItems) {
+                if (category.equals(item)) {
+                    return true;
+                }
+            }
 		}
 
-		i$ = this.subCategories.iterator();
-
-		ItemTreeCategory category1;
-		do {
-			if(!i$.hasNext()) {
-				return false;
+		for(ItemTreeCategory subCategory : this.subCategories) {
+			if(subCategory.contains(item)) {
+				return true;
 			}
-
-			category1 = (ItemTreeCategory)i$.next();
-		} while(!category1.contains(item));
+		}
 
 		return true;
 	}
@@ -54,11 +43,11 @@ public class ItemTreeCategory {
 
 	public void addItem(ItemTreeItem item) {
 		if(this.items.get(item.getId()) == null) {
-			ArrayList itemList = new ArrayList();
+			ArrayList<ItemTreeItem> itemList = new ArrayList<>();
 			itemList.add(item);
 			this.items.put(item.getId(), itemList);
 		} else {
-			((List)this.items.get(item.getId())).add(item);
+			this.items.get(item.getId()).add(item);
 		}
 
 		this.matchingItems.add(item.getName());
@@ -72,19 +61,13 @@ public class ItemTreeCategory {
 		if(this.order != -1) {
 			return this.order;
 		} else {
-			Iterator i$ = this.subCategories.iterator();
-
-			int order;
-			do {
-				if(!i$.hasNext()) {
-					return -1;
+			for(ItemTreeCategory subCategory : this.subCategories) {
+				if(subCategory.getCategoryOrder() != -1) {
+					return subCategory.getCategoryOrder();
 				}
+			}
 
-				ItemTreeCategory category = (ItemTreeCategory)i$.next();
-				order = category.getCategoryOrder();
-			} while(order == -1);
-
-			return order;
+			return -1;
 		}
 	}
 
@@ -92,19 +75,13 @@ public class ItemTreeCategory {
 		if(keyword.equals(this.name)) {
 			return this.getCategoryOrder();
 		} else {
-			Iterator i$ = this.subCategories.iterator();
-
-			int result;
-			do {
-				if(!i$.hasNext()) {
-					return -1;
+			for(ItemTreeCategory subCategory : this.subCategories) {
+				int result = subCategory.findCategoryOrder(keyword);
+				if(result != -1) {
+					return result;
 				}
-
-				ItemTreeCategory category = (ItemTreeCategory)i$.next();
-				result = category.findCategoryOrder(keyword);
-			} while(result == -1);
-
-			return result;
+			}
+			return -1;
 		}
 	}
 
@@ -114,27 +91,23 @@ public class ItemTreeCategory {
 		} else if(this.matchingItems.contains(keyword)) {
 			return 1;
 		} else {
-			Iterator i$ = this.subCategories.iterator();
 
-			int result;
-			do {
-				if(!i$.hasNext()) {
-					return -1;
+			for(ItemTreeCategory subCategory : this.subCategories) {
+				int result = subCategory.findKeywordDepth(keyword);
+				if(result != -1) {
+					return result + 1;
 				}
+			}
 
-				ItemTreeCategory category = (ItemTreeCategory)i$.next();
-				result = category.findKeywordDepth(keyword);
-			} while(result == -1);
-
-			return result + 1;
+			return -1;
 		}
 	}
 
-	public Collection getSubCategories() {
+	public Collection<ItemTreeCategory> getSubCategories() {
 		return this.subCategories;
 	}
 
-	public Collection getItems() {
+	public Collection<List<ItemTreeItem>> getItems() {
 		return this.items.values();
 	}
 

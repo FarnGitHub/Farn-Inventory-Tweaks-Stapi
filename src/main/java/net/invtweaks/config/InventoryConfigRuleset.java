@@ -42,9 +42,9 @@ public class InventoryConfigRuleset {
 	public String registerLine(String rawLine) throws InvalidParameterException {
 		String[] words = rawLine.split(" ");
 		String lineText = rawLine.toLowerCase();
-		SortingRule newRule = null;
+		SortingRule newRule;
 		if(words.length == 2) {
-			if(lineText.matches("^([a-d]|[1-9]|[r]){1,2} [\\w]*$") || lineText.matches("^[a-d][1-9]-[a-d][1-9][rv]?[rv]? [\\w]*$")) {
+			if(lineText.matches("^([a-d]|[1-9]|[r]){1,2} \\w*$") || lineText.matches("^[a-d][1-9]-[a-d][1-9][rv]?[rv]? [\\w]*$")) {
 				words[0] = words[0].toLowerCase();
 				int[] i11;
 				int i16;

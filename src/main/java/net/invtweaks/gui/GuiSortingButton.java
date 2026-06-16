@@ -40,7 +40,7 @@ public class GuiSortingButton extends GuiIconButton {
 			try {
 				(new SortingHandler(minecraft, this.cfgManager.getConfig(), this.section, this.algorithm)).sort();
 			} catch (Exception exception5) {
-				InvTweaks.logInGameErrorStatic("Failed to sort container", exception5);
+				InvTweaks.instance.logInGameError("Failed to sort container", exception5);
 			}
 
 			return true;

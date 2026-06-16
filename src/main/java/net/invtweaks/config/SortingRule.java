@@ -59,7 +59,7 @@ public class SortingRule implements Comparable {
 			boolean column = false;
 			if(constraint.contains("v")) {
 				column = true;
-				constraint = constraint.replaceAll("v", "");
+				constraint = constraint.replace("v", "");
 			}
 
 			String[] row = constraint.split("-");
