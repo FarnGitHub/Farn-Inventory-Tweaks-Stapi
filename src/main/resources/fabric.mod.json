@@ -20,7 +20,7 @@
   "mixins": [
     "oginvtweaks.mixins.json"
   ],
-  "accessWidener": "oginvtweaks.accessWidener",
+  "accessWidener": "oginvtweaks.accesswidener",
   "depends": {
     "minecraft": "1.0.0-beta.7.3"
   }
