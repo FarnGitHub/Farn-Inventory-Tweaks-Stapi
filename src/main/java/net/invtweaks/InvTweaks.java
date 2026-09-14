@@ -90,12 +90,10 @@ public class InvTweaks extends Obfuscation {
 
     static {
         log.setLevel(Const.DEFAULT_LOG_LEVEL);
-        //instance.cfgManager = new InvTweaksConfigManager(instance.mc);
-        if (instance.cfgManager.makeSureConfigurationIsLoaded()) {
+        if (instance.cfgManager.makeSureConfigurationIsLoaded())
             log.info("Mod initialized");
-        } else {
+        else
             log.severe("Mod failed to initialize!");
-        }
     }
 
     /**
