@@ -18,11 +18,11 @@ public class ItemTreeCategory {
     @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger("InvTweaks");
 
-    private final Map<Integer, List<ItemTreeItem>> items = 
-        new HashMap<Integer, List<ItemTreeItem>>();
-    private final Vector<String> matchingItems = new Vector<String>();
-    private final Vector<ItemTreeCategory> subCategories = 
-        new Vector<ItemTreeCategory>();
+    private final Map<Integer, List<ItemTreeItem>> items =
+            new HashMap<>();
+    private final Vector<String> matchingItems = new Vector<>();
+    private final Vector<ItemTreeCategory> subCategories =
+            new Vector<>();
     private String name;
     private int order = -1;
 
@@ -54,7 +54,7 @@ public class ItemTreeCategory {
 
         // Add item to category
         if (items.get(item.getId()) == null) {
-            List<ItemTreeItem> itemList = new ArrayList<ItemTreeItem>();
+            List<ItemTreeItem> itemList = new ArrayList<>();
             itemList.add(item);
             items.put(item.getId(), itemList);
         } else {
@@ -116,8 +116,6 @@ public class ItemTreeCategory {
 
     /**
      * Returns a references to all categories contained in this one.
-     * 
-     * @return
      */
     public Collection<ItemTreeCategory> getSubCategories() {
         return subCategories;

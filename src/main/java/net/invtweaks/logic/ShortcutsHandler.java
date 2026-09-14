@@ -11,7 +11,6 @@ import net.invtweaks.config.InvTweaksConfig;
 import net.invtweaks.library.ContainerManager;
 import net.invtweaks.library.ContainerManager.ContainerSection;
 import net.invtweaks.library.Obfuscation;
-import net.minecraft.client.Minecraft;
 
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;

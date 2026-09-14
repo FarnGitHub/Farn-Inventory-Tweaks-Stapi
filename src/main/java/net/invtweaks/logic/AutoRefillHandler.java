@@ -14,7 +14,6 @@ import net.invtweaks.library.Obfuscation;
 import net.invtweaks.library.ContainerManager.ContainerSection;
 import net.invtweaks.tree.ItemTree;
 import net.invtweaks.tree.ItemTreeItem;
-import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 
 /**
@@ -117,8 +116,7 @@ public class AutoRefillHandler extends Obfuscation {
 				private int targetedSlot;
 				private int i, expectedItemId;
 				
-				public Runnable init(Minecraft mc,
-						int i, int currentItem) throws Exception {
+				public Runnable init(int i, int currentItem) throws Exception {
 					this.containerMgr = new ContainerSectionManager(
 					        ContainerSection.INVENTORY);
 					this.targetedSlot = currentItem;
@@ -182,7 +180,7 @@ public class AutoRefillHandler extends Obfuscation {
 					
 				}
 				
-			}.init(mc, replacementStackSlot, slot)).start();
+			}.init(replacementStackSlot, slot)).start();
 			
 		}
     }
