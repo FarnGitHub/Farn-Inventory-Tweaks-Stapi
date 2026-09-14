@@ -203,3 +203,18 @@ jar {
         rename { "${it}_" + base.archivesName.get() }
     }
 }
+
+publishing {
+    repositories {
+        mavenLocal()
+    }
+
+    publications {
+        create("mavenJava", MavenPublication) {
+            //noinspection GrUnresolvedAccess
+            artifactId = base.archivesName.get()
+            //noinspection GrUnresolvedAccess, GroovyAssignabilityCheck
+            from components.java
+        }
+    }
+}
