@@ -3,8 +3,8 @@ package net.invtweaks.gui;
 import java.awt.Desktop;
 import java.io.File;
 import java.net.URL;
-import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import net.invtweaks.Const;
@@ -17,170 +17,209 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.util.Point;
 
+/**
+ * The inventory and chest settings menu.
+ * 
+ * @author Jimeo Wan
+ * 
+ */
 public class GuiInventorySettings extends Screen {
-	private static final String SCREEN_TITLE = "Inventory and chests settings";
-	private static final String MIDDLE_CLICK = "Middle click";
-	private static final String CHEST_BUTTONS = "Chest buttons";
-	private static final String SORT_ON_PICKUP = "Sort on pickup";
-	private static final String SHORTCUTS = "Shortcuts";
-	private static final String ON = ": ON";
-	private static final String OFF = ": OFF";
-	private static final String DISABLE_CI = ": Disable CI";
-	private static final String SP_ONLY = ": Only in SP";
-	private static final int ID_MIDDLE_CLICK = 1;
-	private static final int ID_CHESTS_BUTTONS = 2;
-	private static final int ID_SORT_ON_PICKUP = 3;
-	private static final int ID_SHORTCUTS = 4;
-	private static final int ID_SHORTCUTS_HELP = 5;
-	private static final int ID_EDITRULES = 100;
-	private static final int ID_EDITTREE = 101;
-	private static final int ID_HELP = 102;
-	private static final int ID_DONE = 200;
-	private Minecraft b;
-	private Screen parentScreen;
-	private InvTweaksConfig config;
-	private boolean selectSortingKey = false;
-	private ButtonWidget sortingButton;
 
-	public GuiInventorySettings(Minecraft mc, Screen parentScreen, InvTweaksConfig config) {
-		this.b = mc;
-		this.parentScreen = parentScreen;
-		this.config = config;
-	}
+    @SuppressWarnings("unused")
+    private static final Logger log = Logger.getLogger("InvTweaks");
 
-	public void init() {
-		LinkedList<ButtonWidget> controlList = new LinkedList<>();
-		Point p = new Point();
-		byte i = 0;
-		this.moveToButtonCoords(1, p);
-		controlList.add(new ButtonWidget(100, p.getX() + 55, this.height / 6 + 96, "Open the sorting rules file..."));
-		controlList.add(new ButtonWidget(101, p.getX() + 55, this.height / 6 + 120, "Open the item tree file..."));
-		controlList.add(sortingButton = new ButtonWidget(102, p.getX() + 55, this.height / 6 + 144, computeSortingKeyLabel()));
-		controlList.add(new ButtonWidget(200, p.getX() + 55, this.height / 6 + 168, "Done"));
-		String middleClick = this.config.getProperty("enableMiddleClick");
-		int i12 = i + 1;
-		this.moveToButtonCoords(i, p);
-		GuiTooltipButton middleClickBtn = new GuiTooltipButton(1, p.getX(), p.getY(), this.computeBooleanButtonLabel("enableMiddleClick", "Middle click"), "To sort using the middle click");
-		controlList.add(middleClickBtn);
+    private final static String SCREEN_TITLE = "Inventory and chests settings";
 
-		this.moveToButtonCoords(i12++, p);
-		controlList.add(new GuiTooltipButton(5, p.getX() + 130, p.getY(), 20, 20, "?", "Shortcuts help"));
-		String shortcuts = this.config.getProperty("enableShortcuts");
-		GuiTooltipButton shortcutsBtn = new GuiTooltipButton(4, p.getX(), p.getY(), 130, 20, this.computeBooleanButtonLabel("enableShortcuts", "Shortcuts"), "Enables various shortcuts\nto move items around");
-		controlList.add(shortcutsBtn);
+    private final static String MIDDLE_CLICK = "Middle click";
+    private final static String CHEST_BUTTONS = "Chest buttons";
+    private final static String SORT_ON_PICKUP = "Sort on pickup";
+    private final static String SHORTCUTS = "Shortcuts";
+    private final static String ON = ": ON";
+    private final static String OFF = ": OFF";
+    private final static String DISABLE_CI = ": Disable CI";
+    private final static String SP_ONLY = ": Only in SP";
 
-		this.moveToButtonCoords(i12++, p);
-		GuiTooltipButton sortOnPickupBtn = new GuiTooltipButton(3, p.getX(), p.getY(), this.computeBooleanButtonLabel("enableSortingOnPickup", "Sort on pickup"), "Moves picked up items\nto the right slots");
-		controlList.add(sortOnPickupBtn);
-		if(this.b.isWorldRemote()) {
-			sortOnPickupBtn.active = false;
-			sortOnPickupBtn.text = "Sort on pickup: Only in SP";
-			sortOnPickupBtn.setTooltip(sortOnPickupBtn.getTooltip() + "\n(Single player only)");
-		}
+    private final static int ID_MIDDLE_CLICK = 1;
+    private final static int ID_CHESTS_BUTTONS = 2;
+    private final static int ID_SORT_ON_PICKUP = 3;
+    private final static int ID_SHORTCUTS = 4;
+    private final static int ID_SHORTCUTS_HELP = 5;
 
-		this.moveToButtonCoords(i12++, p);
-		controlList.add(new GuiTooltipButton(2, p.getX(), p.getY(), this.computeBooleanButtonLabel("showChestButtons", "Chest buttons"), "Adds three buttons\non chests to sort them"));
-		if(!Desktop.isDesktopSupported()) {
-			Iterator<ButtonWidget> i$ = controlList.iterator();
+    private final static int ID_EDITRULES = 100;
+    private final static int ID_EDITTREE = 101;
+    private final static int ID_SORT_KEY = 102;
+    private final static int ID_DONE = 200;
 
-			label29:
-			while(true) {
-				ButtonWidget button;
-				do {
-					if(!i$.hasNext()) {
-						break label29;
-					}
+    private Minecraft mc;
+    private Screen parentScreen;
+    private InvTweaksConfig config;
 
-					button = i$.next();
-				} while(button.id >= 101);
+    private boolean selectSortingKey = false;
+    private ButtonWidget sortingButton;
 
-				button.active = false;
-			}
-		}
+    public GuiInventorySettings(Minecraft mc, Screen parentScreen,
+            InvTweaksConfig config) {
+        this.mc = mc;
+        this.parentScreen = parentScreen;
+        this.config = config;
+    }
 
-		this.buttons = controlList;
-	}
+    public void init() {
 
-	public void render(int i, int j, float f) {
-		this.renderBackground();
-		this.drawCenteredTextWithShadow(this.textRenderer, "InventoryTweaks settings", this.width / 2, 20, 0xFFFFFF);
-		super.render(i, j, f);
-	}
+        List<ButtonWidget> controlList = new LinkedList<>();
+        Point p = new Point();
+        int i = 0;
 
-	protected void keyPressed(char character, int keyCode) {
-		super.keyPressed(character, keyCode);
-		if(sortingButton != null && selectSortingKey) {
-			selectSortingKey = false;
-			Const.SORT_KEY_BINDING.code = keyCode;
-			sortingButton.text = computeSortingKeyLabel();
-		}
-	}
+        // Create large buttons
 
-	protected void buttonClicked(ButtonWidget guibutton) {
-		switch(guibutton.id) {
-		case 1:
-			this.toggleBooleanButton(guibutton, "enableMiddleClick", "Middle click");
-			break;
-		case 2:
-			this.toggleBooleanButton(guibutton, "showChestButtons", "Chest buttons");
-			break;
-		case 3:
-			this.toggleBooleanButton(guibutton, "enableSortingOnPickup", "Sort on pickup");
-			break;
-		case 4:
-			this.toggleBooleanButton(guibutton, "enableShortcuts", "Shortcuts");
-			break;
-		case 5:
-			this.b.setScreen(new GuiShortcutsHelp(this.b, this, this.config));
-			break;
-		case 100:
-			try {
-				Desktop.getDesktop().open(new File(Const.CONFIG_RULES_FILE));
-			} catch (Exception exception5) {
-				InvTweaks.instance.logInGameError("Failed to open rules file", exception5);
-			}
-			break;
-		case 101:
-			try {
-				Desktop.getDesktop().open(new File(Const.CONFIG_TREE_FILE));
-			} catch (Exception exception4) {
-				InvTweaks.instance.logInGameError("Failed to open tree file", exception4);
-			}
-			break;
-		case 102:
-			selectSortingKey = true;
-			guibutton.text = computeSortingKeyLabel();
-			break;
-		case 200:
-			this.b.setScreen(this.parentScreen);
-		}
+        moveToButtonCoords(1, p);
+        controlList.add(new ButtonWidget(ID_EDITRULES, p.getX() + 55, height / 6 + 96, "Open the sorting rules file..."));
+        controlList.add(new ButtonWidget(ID_EDITTREE, p.getX() + 55, height / 6 + 120, "Open the item tree file..."));
+        controlList.add(sortingButton = new ButtonWidget(ID_SORT_KEY, p.getX() + 55, height / 6 + 144, computeSortKeyButtonLabel()));
+        controlList.add(new ButtonWidget(ID_DONE, p.getX() + 55, height / 6 + 168, "Done"));
 
-	}
+        // Create settings buttons
 
-	private void moveToButtonCoords(int buttonOrder, Point p) {
-		p.setX(this.width / 2 - 155 + (buttonOrder + 1) % 2 * 160);
-		p.setY(this.height / 6 + buttonOrder / 2 * 24);
-	}
+        moveToButtonCoords(i++, p);
+        GuiTooltipButton middleClickBtn = new GuiTooltipButton(ID_MIDDLE_CLICK, p.getX(), p.getY(), computeBooleanButtonLabel(
+                InvTweaksConfig.PROP_ENABLE_MIDDLE_CLICK, MIDDLE_CLICK), "To sort using the middle click");
+        controlList.add(middleClickBtn);
 
-	private void toggleBooleanButton(ButtonWidget guibutton, String property, String label) {
-		boolean enabled = !Boolean.parseBoolean(this.config.getProperty(property));
-		this.config.setProperty(property, String.valueOf(enabled));
-		guibutton.text = this.computeBooleanButtonLabel(property, label);
-	}
+        moveToButtonCoords(i++, p);
+        controlList.add(new GuiTooltipButton(ID_SHORTCUTS_HELP, 
+                p.getX() + 130, p.getY(), 20, 20, "?", "Shortcuts help"));
+        GuiTooltipButton shortcutsBtn = new GuiTooltipButton(ID_SHORTCUTS, p.getX(), p.getY(), 130, 20, computeBooleanButtonLabel(
+                InvTweaksConfig.PROP_ENABLE_SHORTCUTS, SHORTCUTS), "Enables various shortcuts\nto move items around");
+        controlList.add(shortcutsBtn);
+        
+        moveToButtonCoords(i++, p);
+        GuiTooltipButton sortOnPickupBtn = new GuiTooltipButton(ID_SORT_ON_PICKUP, p.getX(), p.getY(), computeBooleanButtonLabel(
+                InvTweaksConfig.PROP_ENABLE_SORTING_ON_PICKUP, SORT_ON_PICKUP), "Moves picked up items\nto the right slots");
+        controlList.add(sortOnPickupBtn);
+        if (mc.isWorldRemote()) {
+            // Sorting on pickup unavailable in SMP
+            sortOnPickupBtn.active = false;
+            sortOnPickupBtn.text = SORT_ON_PICKUP + SP_ONLY;
+            sortOnPickupBtn.setTooltip(sortOnPickupBtn.getTooltip() + "\n(Single player only)");
+        }
 
-	private String computeBooleanButtonLabel(String property, String label) {
-		String propertyValue = this.config.getProperty(property);
-		if(propertyValue.equals("convenientInventoryCompatibility")) {
-			return label + ": Disable CI";
-		} else {
-			boolean enabled = Boolean.parseBoolean(propertyValue);
-			return label + (enabled ? ": ON" : ": OFF");
-		}
-	}
+        moveToButtonCoords(i++, p);
+        controlList.add(new GuiTooltipButton(ID_CHESTS_BUTTONS, p.getX(), p.getY(), computeBooleanButtonLabel(
+                InvTweaksConfig.PROP_SHOW_CHEST_BUTTONS, CHEST_BUTTONS), "Adds three buttons\non chests to sort them"));
 
-	private String computeSortingKeyLabel() {
-		String keyName = Keyboard.getKeyName(Const.SORT_KEY_BINDING.code);
-		if(selectSortingKey) keyName = "> " + keyName + " <";
-		return "Sorting Key: " + keyName;
-	}
+        // Check if links to files are supported, if not disable the buttons
+        if (!Desktop.isDesktopSupported()) {
+            for (Object o : controlList) {
+                ButtonWidget button = (ButtonWidget) o;
+                if (button.id < ID_EDITTREE) {
+                    button.active = false;
+                }
+            }
+        }
+
+        // Save control list
+        this.buttons = controlList;
+
+    }
+
+    public void render(int i, int j, float f) {
+        renderBackground();
+        drawCenteredTextWithShadow(textRenderer, SCREEN_TITLE, width / 2, 20, 0xffffff);
+        super.render(i, j, f);
+    }
+
+    protected void keyPressed(char character, int keyCode) {
+        super.keyPressed(character, keyCode);
+        if(sortingButton != null && selectSortingKey) {
+            selectSortingKey = false;
+            Const.SORT_KEY_BINDING.code = keyCode;
+            sortingButton.text = computeSortKeyButtonLabel();
+        }
+    }
+
+    protected void buttonClicked(ButtonWidget guibutton) {
+
+        switch (guibutton.id) {
+
+        // Toggle middle click shortcut
+        case ID_MIDDLE_CLICK:
+            toggleBooleanButton(guibutton, InvTweaksConfig.PROP_ENABLE_MIDDLE_CLICK, MIDDLE_CLICK);
+            break;
+
+        // Toggle chest buttons&
+        case ID_CHESTS_BUTTONS:
+            toggleBooleanButton(guibutton, InvTweaksConfig.PROP_SHOW_CHEST_BUTTONS, CHEST_BUTTONS);
+            break;
+
+        // Toggle auto-refill sound
+        case ID_SORT_ON_PICKUP:
+            toggleBooleanButton(guibutton, InvTweaksConfig.PROP_ENABLE_SORTING_ON_PICKUP, SORT_ON_PICKUP);
+            break;
+
+        // Toggle shortcuts
+        case ID_SHORTCUTS:
+            toggleBooleanButton(guibutton, InvTweaksConfig.PROP_ENABLE_SHORTCUTS, SHORTCUTS);
+            break;
+
+        // Shortcuts help
+        case ID_SHORTCUTS_HELP:
+            mc.setScreen(new GuiShortcutsHelp(mc, this, config));
+            break;
+
+        // Open rules configuration in external editor
+        case ID_EDITRULES:
+            try {
+                Desktop.getDesktop().open(new File(Const.CONFIG_RULES_FILE));
+            } catch (Exception e) {
+                InvTweaks.logInGameErrorStatic("Failed to open rules file", e);
+            }
+            break;
+
+        // Open tree configuration in external editor
+        case ID_EDITTREE:
+            try {
+                Desktop.getDesktop().open(new File(Const.CONFIG_TREE_FILE));
+            } catch (Exception e) {
+                InvTweaks.logInGameErrorStatic("Failed to open tree file", e);
+            }
+            break;
+
+        // Open help in external editor
+        case ID_SORT_KEY:
+            selectSortingKey = true;
+            guibutton.text = computeSortKeyButtonLabel();
+            break;
+        case ID_DONE:
+            mc.setScreen(parentScreen);
+        }
+
+    }
+
+    private void moveToButtonCoords(int buttonOrder, Point p) {
+        p.setX(width / 2 - 155 + ((buttonOrder+1) % 2) * 160);
+        p.setY(height / 6 + (buttonOrder / 2) * 24);
+    }
+
+    private void toggleBooleanButton(ButtonWidget guibutton, String property, String label) {
+        boolean enabled = !config.getProperty(property).equalsIgnoreCase("true");
+        config.setProperty(property, String.valueOf(enabled));
+        guibutton.text = computeBooleanButtonLabel(property, label);
+    }
+
+    private String computeBooleanButtonLabel(String property, String label) {
+        String propertyValue = config.getProperty(property);
+        if (propertyValue.equals(InvTweaksConfig.VALUE_CI_COMPATIBILITY)) {
+            return label + DISABLE_CI;
+        } else {
+            boolean enabled = propertyValue.equalsIgnoreCase("true");
+            return label + ((enabled) ? ON : OFF);
+        }
+    }
+
+    private String computeSortKeyButtonLabel() {
+        String keyName = Keyboard.getKeyName(Const.SORT_KEY_BINDING.code);
+        if(selectSortingKey) keyName = "> " + keyName + " <";
+        return "Sorting Key: " + keyName;
+    }
+
 }

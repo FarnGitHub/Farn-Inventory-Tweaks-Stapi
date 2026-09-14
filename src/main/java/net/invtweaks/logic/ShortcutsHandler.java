@@ -1,7 +1,6 @@
 package net.invtweaks.logic;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -10,439 +9,492 @@ import java.util.Vector;
 import net.invtweaks.InvTweaks;
 import net.invtweaks.config.InvTweaksConfig;
 import net.invtweaks.library.ContainerManager;
+import net.invtweaks.library.ContainerManager.ContainerSection;
 import net.invtweaks.library.Obfuscation;
 import net.minecraft.client.Minecraft;
+
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.Slot;
-
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+/**
+ * 
+ * @author Jimeo Wan
+ *
+ */
 public class ShortcutsHandler extends Obfuscation {
-	private static final int DROP_SLOT = -999;
-	private ShortcutType defaultAction = ShortcutType.MOVE_ONE_STACK;
-	private ShortcutType defaultDestination = null;
-	private InvTweaksConfig config;
-	private ContainerManager container;
-	private ContainerManager.ContainerSection fromSection;
-	private int fromIndex;
-	private ItemStack fromStack;
-	private ContainerManager.ContainerSection toSection;
-	private ShortcutType shortcutType;
-	private Map shortcutKeysStatus;
-	private Map shortcuts;
 
-	public ShortcutsHandler(InvTweaksConfig config) {
-		this.config = config;
-		this.reset();
-	}
+    private final static int DROP_SLOT = -999;
+    
+    private ShortcutType defaultAction = ShortcutType.MOVE_ONE_STACK;
+    private ShortcutType defaultDestination = null;
+    
+    // Context attributes
+    private InvTweaksConfig config;
+    private ContainerManager container;
+    private ContainerSection fromSection;
+    private int fromIndex;
+    private ItemStack fromStack;
+    private ContainerSection toSection;
+    private ShortcutType shortcutType;
 
-	public void reset() {
-		this.shortcutKeysStatus = new HashMap();
-		this.shortcuts = new HashMap();
-		Map keys = this.config.getProperties("shortcutKey");
-		Iterator upKeyCode = keys.keySet().iterator();
+    /**
+     * Allows to monitor the keys related to shortcuts
+     */
+    private Map<Integer, Boolean> shortcutKeysStatus;
+    
+    /**
+     * Stores shortcuts mappings
+     */
+    private Map<ShortcutType, List<Integer>> shortcuts;
+    
+    private enum ShortcutType {
+        MOVE_TO_SPECIFIC_HOTBAR_SLOT,
+        MOVE_ONE_STACK,
+        MOVE_ONE_ITEM,
+        MOVE_ALL_ITEMS,
+        MOVE_UP,
+        MOVE_DOWN,
+        MOVE_TO_EMPTY_SLOT,
+        DROP
+    }
 
-		while(true) {
-			ShortcutType shortcutsHandler$ShortcutType14;
-			label64:
-			do {
-				while(true) {
-					int i$;
-					int i;
-					while(upKeyCode.hasNext()) {
-						String downKeyCode = (String)upKeyCode.next();
-						String keyBindings = (String)keys.get(downKeyCode);
-						if(keyBindings.equals(InvTweaksConfig.VALUE_DEFAULT)) {
-							shortcutsHandler$ShortcutType14 = this.propNameToShortcutType(downKeyCode);
-							if(shortcutsHandler$ShortcutType14 != ShortcutType.MOVE_ALL_ITEMS && shortcutsHandler$ShortcutType14 != ShortcutType.MOVE_ONE_ITEM && shortcutsHandler$ShortcutType14 != ShortcutType.MOVE_ONE_STACK) {
-								continue label64;
-							}
+    public ShortcutsHandler(InvTweaksConfig config) {
+        this.config = config;
+        reset();
+    }
+    
+    public void reset() {
+        
+        shortcutKeysStatus = new HashMap<Integer, Boolean>();
+        shortcuts = new HashMap<ShortcutType, List<Integer>>();
+        
+        Map<String, String> keys = config.getProperties(
+                InvTweaksConfig.PROP_SHORTCUT_PREFIX);
+        for (String key : keys.keySet()) {
+            
+            String value = keys.get(key);
+            
+            if (value.equals(InvTweaksConfig.VALUE_DEFAULT)) {
+                // Customize default behaviour
+                ShortcutType newDefault = propNameToShortcutType(key);
+                if (newDefault == ShortcutType.MOVE_ALL_ITEMS
+                        || newDefault == ShortcutType.MOVE_ONE_ITEM
+                        || newDefault == ShortcutType.MOVE_ONE_STACK) {
+                    defaultAction = newDefault;
+                }
+                else if (newDefault == ShortcutType.MOVE_DOWN
+                        || newDefault == ShortcutType.MOVE_UP) {
+                    defaultDestination = newDefault;
+                }
+            }
+            else {
+                // Register shortcut mappings
+                String[] keyNames = keys.get(key).split("[ ]*,[ ]*");
+                List<Integer> keyBindings = new LinkedList<Integer>();
+                for (String keyName : keyNames) {
+                    // - Accept both KEY_### and ###, in case someone
+                    //   takes the LWJGL Javadoc at face value
+                    // - Accept LALT & RALT instead of LMENU & RMENU
+                    keyBindings.add(Keyboard.getKeyIndex(
+                            keyName.replace("KEY_", "").replace("ALT", "MENU")));
+                }
+                ShortcutType shortcutType = propNameToShortcutType(key);
+                if (shortcutType != null) {
+                    shortcuts.put(shortcutType, keyBindings);
+                }
+                
+                // Register key status listener
+                for (Integer keyCode : keyBindings) {
+                    shortcutKeysStatus.put(keyCode, false);
+                }
+            }
+            
+        }
+        
+        // Add Minecraft's Up & Down bindings to the shortcuts
+        int upKeyCode = mc.options.forwardKey.code,
+            downKeyCode = mc.options.backKey.code;
+        shortcuts.get(ShortcutType.MOVE_UP).add(upKeyCode);
+        shortcuts.get(ShortcutType.MOVE_DOWN).add(downKeyCode);
+        shortcutKeysStatus.put(upKeyCode, false);
+        shortcutKeysStatus.put(downKeyCode, false);
+        
+        // Add hotbar shortcuts (1-9) mappings & listeners
+        List<Integer> keyBindings = new LinkedList<Integer>();
+        int[] hotbarKeys = {Keyboard.KEY_1, Keyboard.KEY_2, Keyboard.KEY_3, 
+                Keyboard.KEY_4, Keyboard.KEY_5, Keyboard.KEY_6,
+                Keyboard.KEY_7, Keyboard.KEY_8, Keyboard.KEY_9,
+                Keyboard.KEY_NUMPAD1, Keyboard.KEY_NUMPAD2, Keyboard.KEY_NUMPAD3,
+                Keyboard.KEY_NUMPAD4, Keyboard.KEY_NUMPAD5, Keyboard.KEY_NUMPAD6, 
+                Keyboard.KEY_NUMPAD7, Keyboard.KEY_NUMPAD8, Keyboard.KEY_NUMPAD9};
+        for (int i : hotbarKeys) {
+            keyBindings.add(i);
+            shortcutKeysStatus.put(i, false);
+        }
+        shortcuts.put(ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT, keyBindings);
+        
+    }
+    
+    public Vector<Integer> getDownShortcutKeys() {
+        updateKeyStatuses();
+        Vector<Integer> downShortcutKeys = new Vector<Integer>();
+        for (Integer key : shortcutKeysStatus.keySet()) {
+            if (shortcutKeysStatus.get(key)) {
+                downShortcutKeys.add(key);
+            }
+        }
+        return downShortcutKeys;
+    }
+    
+    public void handleShortcut(HandledScreen guiScreen) {
+        // IMPORTANT: This method is called before the default action is executed.
+        
+        updateKeyStatuses();
+        
+        // Initialization
+        int ex = Mouse.getEventX(), ey = Mouse.getEventY();
+        int x = (ex * guiScreen.width) / mc.displayWidth;
+        int y = guiScreen.height - (ey * guiScreen.height) / mc.displayHeight - 1;
+        boolean shortcutValid = false;
+        
+        // Check that the slot is not empty
+        Slot slot = getSlotAtPosition(guiScreen, x, y);
+        
+        if (slot != null && slot.hasStack()) {
+    
+            // Choose shortcut type
+            ShortcutType shortcutType = defaultAction;
+            if (isActive(ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT) != -1) {
+                shortcutType = ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT;
+                shortcutValid = true;
+            }
+            if (isActive(ShortcutType.MOVE_ALL_ITEMS) != -1) {
+                shortcutType = ShortcutType.MOVE_ALL_ITEMS;
+                shortcutValid = true;
+            }
+            else if (isActive(ShortcutType.MOVE_ONE_ITEM) != -1) {
+                shortcutType = ShortcutType.MOVE_ONE_ITEM;
+                shortcutValid = true;
+            }
+            
+            // Choose target section
+            try {
+                ContainerManager container = new ContainerManager();
+                ContainerSection srcSection = container.getSlotSection(slot.id);
+                ContainerSection destSection = null;
+                
+                // Set up available sections
+                Vector<ContainerSection> availableSections = new Vector<ContainerSection>();
+                if (container.hasSection(ContainerSection.CHEST)) {
+                    availableSections.add(ContainerSection.CHEST);
+                }
+                else if (container.hasSection(ContainerSection.CRAFTING_IN)) {
+                    availableSections.add(ContainerSection.CRAFTING_IN);
+                }
+                else if (container.hasSection(ContainerSection.FURNACE_IN)) {
+                    availableSections.add(ContainerSection.FURNACE_IN);
+                }
+                availableSections.add(ContainerSection.INVENTORY_NOT_HOTBAR);
+                availableSections.add(ContainerSection.INVENTORY_HOTBAR);
+                
+                // Check for destination modifiers
+                int destinationModifier = 0; 
+                if (isActive(ShortcutType.MOVE_UP) != -1
+                        || defaultDestination == ShortcutType.MOVE_UP) {
+                    destinationModifier = -1;
+                }
+                else if (isActive(ShortcutType.MOVE_DOWN) != -1
+                        || defaultDestination == ShortcutType.MOVE_DOWN) {
+                    destinationModifier = 1;
+                }
+                
+                if (destinationModifier == 0) {
+                    // Default behavior
+                    switch (srcSection) {
 
-							this.defaultAction = shortcutsHandler$ShortcutType14;
-						} else {
-							String[] hotbarKeys = ((String)keys.get(downKeyCode)).split("[ ]*,[ ]*");
-							LinkedList arr$ = new LinkedList();
-							String[] len$ = hotbarKeys;
-							i$ = hotbarKeys.length;
+                    case INVENTORY_HOTBAR:
+                        destSection = ContainerSection.INVENTORY_NOT_HOTBAR;
+                        break;
+                        
+                    case CRAFTING_IN:
+                    case FURNACE_IN:
+                        destSection = ContainerSection.INVENTORY_NOT_HOTBAR;
+                        break;
+                        
+                    default:
+                        destSection = ContainerSection.INVENTORY_HOTBAR;
+                    }
+                }
+                
+                else {
+                    // Specific destination
+                    shortcutValid = true;
+                    int srcSectionIndex = availableSections.indexOf(srcSection);
+                    if (srcSectionIndex != -1) {
+                        destSection = availableSections.get(
+                                (availableSections.size() + srcSectionIndex + 
+                                        destinationModifier) % availableSections.size());
+                    }
+                    else {
+                        destSection = ContainerSection.INVENTORY;
+                    }
+                }
+                
+                // Don't trigger the shortcut if we don't know on what we are clicking.
+                if (srcSection == ContainerSection.UNKNOWN) {
+                    shortcutValid = false;
+                }
+                
+                if (shortcutValid || isActive(ShortcutType.DROP) != -1) {
+                    
+                    initAction(slot.id, shortcutType, destSection);
+                    
+                    if (shortcutType == ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT) {
+                        
+                        // Move to specific hotbar slot
+                        String keyName = Keyboard.getKeyName(
+                                isActive(ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT));
+                        int destIndex = -1+Integer.parseInt(keyName.replace("NUMPAD", ""));
+                        container.move(fromSection, fromIndex,
+                                ContainerSection.INVENTORY_HOTBAR, destIndex);
+                        
+                    } else {
+                        
+                        // Drop or move
+                        if (srcSection == ContainerSection.CRAFTING_OUT) {
+                            craftAll(Mouse.isButtonDown(1), isActive(ShortcutType.DROP) != -1);
+                        } else {
+                            move(Mouse.isButtonDown(1), isActive(ShortcutType.DROP) != -1);
+                        }
+                    }
+                    
+                    // Reset mouse status to prevent default action.
+                    Mouse.destroy();
+                    Mouse.create();
+                    
+                    // Fixes a tiny glitch (Steve looks for a short moment
+                    // at [0, 0] because of the mouse reset).
+                    Mouse.setCursorPosition(ex, ey);
+                }
+    
+            } catch (Exception e) {
+               InvTweaks.logInGameErrorStatic("Failed to trigger shortcut", e);
+            }
+        }
+            
+    }
 
-							for(i = 0; i < i$; ++i) {
-								String keyName = len$[i];
-								arr$.add(Keyboard.getKeyIndex(keyName.replace("KEY_", "").replace("ALT", "MENU")));
-							}
+    private void move(boolean separateStacks, boolean drop) throws Exception {
+        
+        int toIndex = -1;
+        
+        synchronized(this) {
+    
+            toIndex = getNextIndex(separateStacks, drop);
+            if (toIndex != -1) {
+                switch (shortcutType) {
+                
+                case MOVE_ONE_STACK:
+                {
+                    Slot slot = container.getSlot(fromSection, fromIndex);
+                    while (slot.hasStack() && toIndex != -1) {
+                        container.move(fromSection, fromIndex, toSection, toIndex);
+                        toIndex = getNextIndex(separateStacks, drop);
+                    }
+                    break;
+    
+                }
+                
+                case MOVE_ONE_ITEM:
+                {
+                    container.moveSome(fromSection, fromIndex, toSection, toIndex, 1);
+                    break;
+                }
+                    
+                case MOVE_ALL_ITEMS:
+                {
+                    for (Slot slot : container.getSlots(fromSection)) {
+                        if (slot.hasStack() && areSameItemType(fromStack, slot.getStack())) {
+                            int fromIndex = container.getSlotIndex(slot.id);
+                            while (slot.hasStack() && toIndex != -1 &&
+                                    !(fromSection == toSection && fromIndex == toIndex)) {
+                                boolean moveResult = container.move(fromSection, fromIndex,
+                                        toSection, toIndex);
+                                if (!moveResult) {
+                                    break;
+                                }
+                                toIndex = getNextIndex(separateStacks, drop);
+                            }
+                        }
+                    }
+                }
+                    
+                }
+            }
+            
+        }
+    }
+    
+    private void craftAll(boolean separateStacks, boolean drop) throws Exception {
+        int toIndex = getNextIndex(separateStacks, drop);
+        Slot slot = container.getSlot(fromSection, fromIndex);
+        if (slot.hasStack()) {
+            // Store the first item type to craft, to make
+            // sure it doesn't craft something else in the end
+            int idToCraft = getItemID(slot.getStack());
+            do {
+                container.move(fromSection, fromIndex, toSection, toIndex);
+                toIndex = getNextIndex(separateStacks, drop);
+                if (getHoldStack() != null) {
+                    container.leftClick(toSection, toIndex);
+                    toIndex = getNextIndex(separateStacks, drop);
+                }
+            
+            } while (slot.hasStack()
+                    && getItemID(slot.getStack()) == idToCraft
+                    && toIndex != -1);
+        }
+    }
 
-							ShortcutType shortcutsHandler$ShortcutType17 = this.propNameToShortcutType(downKeyCode);
-							if(shortcutsHandler$ShortcutType17 != null) {
-								this.shortcuts.put(shortcutsHandler$ShortcutType17, arr$);
-							}
+    /**
+     * Checks if the Up/Down controls that are listened are outdated
+     * @return true if the shortuts listeners have to be reset
+     */
+    private boolean haveControlsChanged() {
+        return (!shortcutKeysStatus.containsKey(mc.options.forwardKey.code)
+                || !shortcutKeysStatus.containsKey(mc.options.backKey.code));
+    }
 
-							Iterator iterator19 = arr$.iterator();
+    private void updateKeyStatuses() {
+        if (haveControlsChanged())
+            reset();
+        for (int keyCode : shortcutKeysStatus.keySet()) {
+            if (Keyboard.isKeyDown(keyCode)) {
+                if (!shortcutKeysStatus.get(keyCode)) {
+                    shortcutKeysStatus.put(keyCode, true);
+                }
+            }
+            else {
+                shortcutKeysStatus.put(keyCode, false);
+            }
+        }
+    }
 
-							while(iterator19.hasNext()) {
-								Integer integer20 = (Integer)iterator19.next();
-								this.shortcutKeysStatus.put(integer20, false);
-							}
-						}
-					}
+    private int getNextIndex(boolean emptySlotOnly, boolean drop) {
+        
+        if (drop) {
+            return DROP_SLOT;
+        }
+        
+        int result = -1;
 
-					int i11 = Minecraft.INSTANCE.options.forwardKey.code;
-					int i12 = Minecraft.INSTANCE.options.backKey.code;
-					((List)this.shortcuts.get(ShortcutType.MOVE_UP)).add(i11);
-					((List)this.shortcuts.get(ShortcutType.MOVE_DOWN)).add(i12);
-					this.shortcutKeysStatus.put(i11, false);
-					this.shortcutKeysStatus.put(i12, false);
-					LinkedList linkedList13 = new LinkedList();
-					int[] i15 = new int[]{2, 3, 4, 5, 6, 7, 8, 9, 10, 79, 80, 81, 75, 76, 77, 71, 72, 73};
-					int[] i16 = i15;
-					int i18 = i15.length;
+        // Try to merge with existing slot
+        if (!emptySlotOnly) {
+            int i = 0;
+            for (Slot slot : container.getSlots(toSection)) {
+                if (slot.hasStack()) {
+                    ItemStack stack = slot.getStack();
+                    if (stack.isItemEqual(fromStack)
+                            && getStackSize(stack) < getMaxStackSize(stack)) {
+                        result = i;
+                        break;
+                    }
+                }
+                i++;
+            }
+        }
+        
+        // Else find empty slot
+        if (result == -1) {
+            result = container.getFirstEmptyIndex(toSection);
+        }
+        
+        // Switch from FURNACE_IN to FURNACE_FUEL if the slot is taken
+        if (result == -1 && toSection == ContainerSection.FURNACE_IN) {
+            toSection =  ContainerSection.FURNACE_FUEL;
+            result = container.getFirstEmptyIndex(toSection);
+        }
+        
+        return result;
+    }
 
-					for(i$ = 0; i$ < i18; ++i$) {
-						i = i16[i$];
-						linkedList13.add(i);
-						this.shortcutKeysStatus.put(i, false);
-					}
+    /**
+     * @param shortcutType
+     * @return The key that made the shortcut active
+     */
+    private int isActive(ShortcutType shortcutType) {
+        for (Integer keyCode : shortcuts.get(shortcutType)) {
+            if (shortcutKeysStatus.get(keyCode) && 
+                    // AltGr also activates LCtrl, make sure the real LCtrl has been pressed
+                    (keyCode != 29 || !Keyboard.isKeyDown(184))) {
+                return keyCode;
+            }
+        }
+        return -1;
+    }
 
-					this.shortcuts.put(ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT, linkedList13);
-					return;
-				}
-			} while(shortcutsHandler$ShortcutType14 != ShortcutType.MOVE_DOWN && shortcutsHandler$ShortcutType14 != ShortcutType.MOVE_UP);
+    private void initAction(int fromSlot, ShortcutType shortcutType, ContainerSection destSection) throws Exception {
+        
+        // Set up context
+        this.container = new ContainerManager();
+        this.fromSection = container.getSlotSection(fromSlot);
+        this.fromIndex = container.getSlotIndex(fromSlot);
+        this.fromStack = container.getItemStack(fromSection, fromIndex);
+        this.shortcutType = shortcutType;
+        this.toSection = destSection;
+        
+        // Put hold stack down
+        if (getHoldStack() != null) {
+            
+            container.leftClick(fromSection, fromIndex);
+            
+            // Sometimes (ex: crafting output) we can't put back the item
+            // in the slot, in that case choose a new one.
+            if (getHoldStack() != null) {
+                int firstEmptyIndex = container.getFirstEmptyIndex(ContainerSection.INVENTORY);
+                if (firstEmptyIndex != -1) {
+                   fromSection = ContainerSection.INVENTORY;
+                   fromSlot = firstEmptyIndex;
+                   container.leftClick(fromSection, fromSlot);
+                   
+                }
+                else {
+                    throw new Exception("Couldn't put hold item down");
+                }
+            }
+        }
+    }
+    
+    private Slot getSlotAtPosition(HandledScreen guiContainer, int i, int j) {
+        // Copied from GuiContainer
+        for (int k = 0; k < guiContainer.container.slots.size(); k++) {
+            Slot slot = (Slot)guiContainer.container.slots.get(k);
+            if (InvTweaks.getIsMouseOverSlot(guiContainer, slot, i, j)) {
+                return slot;
+            }
+        }
+        return null;
+    }
 
-			this.defaultDestination = shortcutsHandler$ShortcutType14;
-		}
-	}
-
-	public Vector getDownShortcutKeys() {
-		this.updateKeyStatuses();
-		Vector downShortcutKeys = new Vector();
-		Iterator i$ = this.shortcutKeysStatus.keySet().iterator();
-
-		while(i$.hasNext()) {
-			Integer key = (Integer)i$.next();
-			if(((Boolean)this.shortcutKeysStatus.get(key)).booleanValue()) {
-				downShortcutKeys.add(key);
-			}
-		}
-
-		return downShortcutKeys;
-	}
-
-	public void handleShortcut(HandledScreen guiScreen) {
-		this.updateKeyStatuses();
-		int ex = Mouse.getEventX();
-		int ey = Mouse.getEventY();
-		int x = ex * guiScreen.width / Minecraft.INSTANCE.displayWidth;
-		int y = guiScreen.height - ey * guiScreen.height / Minecraft.INSTANCE.displayHeight - 1;
-		boolean shortcutValid = false;
-		Slot slot = this.getSlotAtPosition(guiScreen, x, y);
-		if(slot != null && slot.hasStack()) {
-			ShortcutType shortcutType = this.defaultAction;
-			if(this.isActive(ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT) != -1) {
-				shortcutType = ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT;
-				shortcutValid = true;
-			}
-
-			if(this.isActive(ShortcutType.MOVE_ALL_ITEMS) != -1) {
-				shortcutType = ShortcutType.MOVE_ALL_ITEMS;
-				shortcutValid = true;
-			} else if(this.isActive(ShortcutType.MOVE_ONE_ITEM) != -1) {
-				shortcutType = ShortcutType.MOVE_ONE_ITEM;
-				shortcutValid = true;
-			}
-
-			try {
-				ContainerManager e = new ContainerManager();
-				ContainerManager.ContainerSection srcSection = e.getSlotSection(slot.id);
-				ContainerManager.ContainerSection destSection = null;
-				Vector availableSections = new Vector();
-				if(e.hasSection(ContainerManager.ContainerSection.CHEST)) {
-					availableSections.add(ContainerManager.ContainerSection.CHEST);
-				} else if(e.hasSection(ContainerManager.ContainerSection.CRAFTING_IN)) {
-					availableSections.add(ContainerManager.ContainerSection.CRAFTING_IN);
-				} else if(e.hasSection(ContainerManager.ContainerSection.FURNACE_IN)) {
-					availableSections.add(ContainerManager.ContainerSection.FURNACE_IN);
-				}
-
-				availableSections.add(ContainerManager.ContainerSection.INVENTORY_NOT_HOTBAR);
-				availableSections.add(ContainerManager.ContainerSection.INVENTORY_HOTBAR);
-				byte destinationModifier = 0;
-				if(this.isActive(ShortcutType.MOVE_UP) == -1 && this.defaultDestination != ShortcutType.MOVE_UP) {
-					if(this.isActive(ShortcutType.MOVE_DOWN) != -1 || this.defaultDestination == ShortcutType.MOVE_DOWN) {
-						destinationModifier = 1;
-					}
-				} else {
-					destinationModifier = -1;
-				}
-
-				if(destinationModifier == 0) {
-					switch(SyntheticClass_1.$SwitchMap$net$invtweaks$library$ContainerManager$ContainerSection[srcSection.ordinal()]) {
-					case 1:
-						destSection = ContainerManager.ContainerSection.INVENTORY_NOT_HOTBAR;
-						break;
-					case 2:
-					case 3:
-						destSection = ContainerManager.ContainerSection.INVENTORY_NOT_HOTBAR;
-						break;
-					default:
-						destSection = ContainerManager.ContainerSection.INVENTORY_HOTBAR;
-					}
-				} else {
-					shortcutValid = true;
-					int keyName = availableSections.indexOf(srcSection);
-					if(keyName != -1) {
-						destSection = (ContainerManager.ContainerSection)availableSections.get((availableSections.size() + keyName + destinationModifier) % availableSections.size());
-					} else {
-						destSection = ContainerManager.ContainerSection.INVENTORY;
-					}
-				}
-
-				if(srcSection == ContainerManager.ContainerSection.UNKNOWN) {
-					shortcutValid = false;
-				}
-
-				if(shortcutValid || this.isActive(ShortcutType.DROP) != -1) {
-					this.initAction(slot.id, shortcutType, destSection);
-					if(shortcutType == ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT) {
-						String keyName1 = Keyboard.getKeyName(this.isActive(ShortcutType.MOVE_TO_SPECIFIC_HOTBAR_SLOT));
-						int destIndex = -1 + Integer.parseInt(keyName1.replace("NUMPAD", ""));
-						e.move(this.fromSection, this.fromIndex, ContainerManager.ContainerSection.INVENTORY_HOTBAR, destIndex);
-					} else if(srcSection == ContainerManager.ContainerSection.CRAFTING_OUT) {
-						this.craftAll(Mouse.isButtonDown(1), this.isActive(ShortcutType.DROP) != -1);
-					} else {
-						this.move(Mouse.isButtonDown(1), this.isActive(ShortcutType.DROP) != -1);
-					}
-
-					Mouse.destroy();
-					Mouse.create();
-					Mouse.setCursorPosition(ex, ey);
-				}
-			} catch (Exception exception16) {
-				InvTweaks.instance.logInGameError("Failed to trigger shortcut", exception16);
-			}
-		}
-
-	}
-
-	private void move(boolean separateStacks, boolean drop) throws Exception {
-		boolean toIndex = true;
-		synchronized(this) {
-			int toIndex1 = this.getNextIndex(separateStacks, drop);
-			if(toIndex1 != -1) {
-				switch(SyntheticClass_1.$SwitchMap$net$invtweaks$logic$ShortcutsHandler$ShortcutType[this.shortcutType.ordinal()]) {
-				case 1:
-					for(Slot i$1 = this.container.getSlot(this.fromSection, this.fromIndex); i$1.hasStack() && toIndex1 != -1; toIndex1 = this.getNextIndex(separateStacks, drop)) {
-						this.container.move(this.fromSection, this.fromIndex, this.toSection, toIndex1);
-					}
-
-					return;
-				case 2:
-					this.container.moveSome(this.fromSection, this.fromIndex, this.toSection, toIndex1, 1);
-					break;
-				case 3:
-					Iterator i$ = this.container.getSlots(this.fromSection).iterator();
-
-					while(true) {
-						Slot slot;
-						do {
-							do {
-								if(!i$.hasNext()) {
-									return;
-								}
-
-								slot = (Slot)i$.next();
-							} while(!slot.hasStack());
-						} while(!this.areSameItemType(this.fromStack, slot.getStack()));
-
-						for(int fromIndex = this.container.getSlotIndex(slot.id); slot.hasStack() && toIndex1 != -1 && (this.fromSection != this.toSection || fromIndex != toIndex1); toIndex1 = this.getNextIndex(separateStacks, drop)) {
-							boolean moveResult = this.container.move(this.fromSection, fromIndex, this.toSection, toIndex1);
-							if(!moveResult) {
-								break;
-							}
-						}
-					}
-				}
-			}
-
-		}
-	}
-
-	private void craftAll(boolean separateStacks, boolean drop) throws Exception {
-		int toIndex = this.getNextIndex(separateStacks, drop);
-		Slot slot = this.container.getSlot(this.fromSection, this.fromIndex);
-		if(slot.hasStack()) {
-			int idToCraft = this.getItemID(slot.getStack());
-
-			do {
-				this.container.move(this.fromSection, this.fromIndex, this.toSection, toIndex);
-				toIndex = this.getNextIndex(separateStacks, drop);
-				if(this.getHoldStack() != null) {
-					this.container.leftClick(this.toSection, toIndex);
-					toIndex = this.getNextIndex(separateStacks, drop);
-				}
-			} while(slot.hasStack() && this.getItemID(slot.getStack()) == idToCraft && toIndex != -1);
-		}
-
-	}
-
-	private boolean haveControlsChanged() {
-		return !this.shortcutKeysStatus.containsKey(Minecraft.INSTANCE.options.forwardKey.code) || !this.shortcutKeysStatus.containsKey(Minecraft.INSTANCE.options.backKey.code);
-	}
-
-	private void updateKeyStatuses() {
-		if(this.haveControlsChanged()) {
-			this.reset();
-		}
-
-		Iterator i$ = this.shortcutKeysStatus.keySet().iterator();
-
-		while(i$.hasNext()) {
-			int keyCode = ((Integer)i$.next()).intValue();
-			if(Keyboard.isKeyDown(keyCode)) {
-				if(!((Boolean)this.shortcutKeysStatus.get(keyCode)).booleanValue()) {
-					this.shortcutKeysStatus.put(keyCode, true);
-				}
-			} else {
-				this.shortcutKeysStatus.put(keyCode, false);
-			}
-		}
-
-	}
-
-	private int getNextIndex(boolean emptySlotOnly, boolean drop) {
-		if(drop) {
-			return -999;
-		} else {
-			int result = -1;
-			if(!emptySlotOnly) {
-				int i = 0;
-
-				for(Iterator i$ = this.container.getSlots(this.toSection).iterator(); i$.hasNext(); ++i) {
-					Slot slot = (Slot)i$.next();
-					if(slot.hasStack()) {
-						ItemStack stack = slot.getStack();
-						if(stack.isItemEqual(this.fromStack) && this.getStackSize(stack) < this.getMaxStackSize(stack)) {
-							result = i;
-							break;
-						}
-					}
-				}
-			}
-
-			if(result == -1) {
-				result = this.container.getFirstEmptyIndex(this.toSection);
-			}
-
-			if(result == -1 && this.toSection == ContainerManager.ContainerSection.FURNACE_IN) {
-				this.toSection = ContainerManager.ContainerSection.FURNACE_FUEL;
-				result = this.container.getFirstEmptyIndex(this.toSection);
-			}
-
-			return result;
-		}
-	}
-
-	private int isActive(ShortcutType shortcutType) {
-		Iterator i$ = ((List)this.shortcuts.get(shortcutType)).iterator();
-
-		Integer keyCode;
-		do {
-			do {
-				if(!i$.hasNext()) {
-					return -1;
-				}
-
-				keyCode = (Integer)i$.next();
-			} while(!((Boolean)this.shortcutKeysStatus.get(keyCode)).booleanValue());
-		} while(keyCode.intValue() == 29 && Keyboard.isKeyDown(Keyboard.KEY_RMENU));
-
-		return keyCode.intValue();
-	}
-
-	private void initAction(int fromSlot, ShortcutType shortcutType, ContainerManager.ContainerSection destSection) throws Exception {
-		this.container = new ContainerManager();
-		this.fromSection = this.container.getSlotSection(fromSlot);
-		this.fromIndex = this.container.getSlotIndex(fromSlot);
-		this.fromStack = this.container.getItemStack(this.fromSection, this.fromIndex);
-		this.shortcutType = shortcutType;
-		this.toSection = destSection;
-		if(this.getHoldStack() != null) {
-			this.container.leftClick(this.fromSection, this.fromIndex);
-			if(this.getHoldStack() != null) {
-				int firstEmptyIndex = this.container.getFirstEmptyIndex(ContainerManager.ContainerSection.INVENTORY);
-				if(firstEmptyIndex == -1) {
-					throw new Exception("Couldn\'t put hold item down");
-				}
-
-				this.fromSection = ContainerManager.ContainerSection.INVENTORY;
-				this.container.leftClick(this.fromSection, firstEmptyIndex);
-			}
-		}
-
-	}
-
-	private Slot getSlotAtPosition(HandledScreen guiContainer, int i, int j) {
-		for(int k = 0; k < guiContainer.container.slots.size(); ++k) {
-			Slot slot = (Slot)guiContainer.container.slots.get(k);
-			if(InvTweaks.getIsMouseOverSlot(guiContainer, slot, i, j)) {
-				return slot;
-			}
-		}
-
-		return null;
-	}
-
-	private ShortcutType propNameToShortcutType(String property) {
-		return property.equals("shortcutKeyAllItems") ? ShortcutType.MOVE_ALL_ITEMS : (property.equals("shortcutKeyToLowerSection") ? ShortcutType.MOVE_DOWN : (property.equals("shortcutKeyDrop") ? ShortcutType.DROP : (property.equals("shortcutKeyOneItem") ? ShortcutType.MOVE_ONE_ITEM : (property.equals("shortcutKeyOneStack") ? ShortcutType.MOVE_ONE_STACK : (property.equals("shortcutKeyToUpperSection") ? ShortcutType.MOVE_UP : null)))));
-	}
-
-	static class SyntheticClass_1 {
-		static final int[] $SwitchMap$net$invtweaks$library$ContainerManager$ContainerSection;
-		static final int[] $SwitchMap$net$invtweaks$logic$ShortcutsHandler$ShortcutType = new int[ShortcutType.values().length];
-
-		static {
-			try {
-				$SwitchMap$net$invtweaks$logic$ShortcutsHandler$ShortcutType[ShortcutType.MOVE_ONE_STACK.ordinal()] = 1;
-			} catch (NoSuchFieldError noSuchFieldError6) {
-			}
-
-			try {
-				$SwitchMap$net$invtweaks$logic$ShortcutsHandler$ShortcutType[ShortcutType.MOVE_ONE_ITEM.ordinal()] = 2;
-			} catch (NoSuchFieldError noSuchFieldError5) {
-			}
-
-			try {
-				$SwitchMap$net$invtweaks$logic$ShortcutsHandler$ShortcutType[ShortcutType.MOVE_ALL_ITEMS.ordinal()] = 3;
-			} catch (NoSuchFieldError noSuchFieldError4) {
-			}
-
-			$SwitchMap$net$invtweaks$library$ContainerManager$ContainerSection = new int[ContainerManager.ContainerSection.values().length];
-
-			try {
-				$SwitchMap$net$invtweaks$library$ContainerManager$ContainerSection[ContainerManager.ContainerSection.INVENTORY_HOTBAR.ordinal()] = 1;
-			} catch (NoSuchFieldError noSuchFieldError3) {
-			}
-
-			try {
-				$SwitchMap$net$invtweaks$library$ContainerManager$ContainerSection[ContainerManager.ContainerSection.CRAFTING_IN.ordinal()] = 2;
-			} catch (NoSuchFieldError noSuchFieldError2) {
-			}
-
-			try {
-				$SwitchMap$net$invtweaks$library$ContainerManager$ContainerSection[ContainerManager.ContainerSection.FURNACE_IN.ordinal()] = 3;
-			} catch (NoSuchFieldError noSuchFieldError1) {
-			}
-
-		}
-	}
-
-	private static enum ShortcutType {
-		MOVE_TO_SPECIFIC_HOTBAR_SLOT,
-		MOVE_ONE_STACK,
-		MOVE_ONE_ITEM,
-		MOVE_ALL_ITEMS,
-		MOVE_UP,
-		MOVE_DOWN,
-		MOVE_TO_EMPTY_SLOT,
-		DROP;
-	}
+    private ShortcutType propNameToShortcutType(String property) {
+        if (property.equals(InvTweaksConfig.PROP_SHORTCUT_ALL_ITEMS)) {
+            return ShortcutType.MOVE_ALL_ITEMS;
+        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_DOWN)) {
+            return ShortcutType.MOVE_DOWN;
+        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_DROP)) {
+            return ShortcutType.DROP;
+        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_ONE_ITEM)) {
+            return ShortcutType.MOVE_ONE_ITEM;
+        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_ONE_STACK)) {
+            return ShortcutType.MOVE_ONE_STACK;
+        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_UP)) {
+            return ShortcutType.MOVE_UP;
+        } else {
+            return null;
+        }
+    }
+    
 }

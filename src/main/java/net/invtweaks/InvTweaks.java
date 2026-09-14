@@ -1,23 +1,24 @@
 package net.invtweaks;
 
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import farn.invtweaksStapi.InvTweaksStapi;
+import net.invtweaks.Const;
 import net.invtweaks.config.InvTweaksConfig;
 import net.invtweaks.config.InvTweaksConfigManager;
 import net.invtweaks.config.SortingRule;
 import net.invtweaks.gui.GuiInventorySettingsButton;
 import net.invtweaks.gui.GuiSortingButton;
-import net.invtweaks.library.ContainerManager;
+import net.invtweaks.library.ContainerManager.ContainerSection;
 import net.invtweaks.library.ContainerSectionManager;
 import net.invtweaks.library.Obfuscation;
 import net.invtweaks.logic.SortingHandler;
 import net.invtweaks.tree.ItemTree;
+import net.invtweaks.tree.ItemTreeItem;
 import net.minecraft.client.Minecraft;
 
 import net.minecraft.client.gui.screen.Screen;
@@ -28,467 +29,645 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
-import org.apache.logging.log4j.Logger;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+/**
+ * Main class for Inventory Tweaks, which maintains various hooks
+ * and dispatches the events to the correct handlers.
+ * 
+ * @author Jimeo Wan
+ *
+ * Contact: jimeo.wan (at) gmail (dot) com
+ * Website: {@link http://wan.ka.free.fr/?invtweaks}
+ * Source code: {@link https://github.com/jimeowan/inventory-tweaks}
+ * License: MIT
+ * 
+ */
+@SuppressWarnings("JavadocReference")
 public class InvTweaks extends Obfuscation {
-	private static final Logger log = InvTweaksStapi.LOGGER;
-	public static final InvTweaks instance = new InvTweaks();
-	public InvTweaksConfigManager cfgManager = new InvTweaksConfigManager();
-	private int chestAlgorithm = 0;
-	private long chestAlgorithmClickTimestamp = 0L;
-	private boolean chestAlgorithmButtonDown = false;
-	private long sortingKeyPressedDate = 0L;
-	private int storedStackId = 0;
-	private int storedStackDamage = -1;
-	private int storedFocusedSlot = -1;
-	private ItemStack[] hotbarClone = new ItemStack[9];
-	private boolean mouseWasInWindow = true;
-	private boolean mouseWasDown = false;
-	private int tickNumber = 0;
-	private int lastPollingTickNumber = -3;
-	public static boolean init = false;
 
-	private InvTweaks() {
-	}
+    private static final Logger log = Logger.getLogger("InvTweaks");
 
-	public static void checkConfigLoad() {
-		if(init) return;
-		init = true;
-		if(InvTweaks.instance.cfgManager.makeSureConfigurationIsLoaded()) {
-			log.info("Mod initialized");
-		} else {
-			log.error("Mod failed to initialize!");
-		}
-	}
+    public static InvTweaks instance = new InvTweaks();
 
-	public final void onSortingKeyPressed() {
-		synchronized(this) {
-			if(this.cfgManager.makeSureConfigurationIsLoaded()) {
-				Screen guiScreen = this.getCurrentScreen();
-				if(guiScreen == null || guiScreen instanceof HandledScreen) {
-					this.handleSorting(guiScreen);
-				}
-			}
-		}
-	}
+    /**
+     * The configuration loader.
+     */
+    public InvTweaksConfigManager cfgManager = new InvTweaksConfigManager(Minecraft.INSTANCE);
+    
+    /**
+     * Attributes to remember the status of chest sorting
+     * while using middle clicks.
+     */
+    private int chestAlgorithm = SortingHandler.ALGORITHM_DEFAULT;
+    private long chestAlgorithmClickTimestamp = 0;
+    private boolean chestAlgorithmButtonDown = false;
 
-	public void onItemPickup() {
-		if(this.cfgManager.makeSureConfigurationIsLoaded()) {
-			InvTweaksConfig config = this.cfgManager.getConfig();
-			if(!this.cfgManager.getConfig().getProperty("enableSortingOnPickup").equals("false")) {
-				try {
-					ContainerSectionManager e = new ContainerSectionManager(ContainerManager.ContainerSection.INVENTORY);
-					int currentSlot = -1;
+    /**
+     * Stores when the sorting key was last pressed to help
+     * trigger the configuration swapping.
+     */
+    private long sortingKeyPressedDate = 0;
+    
+    /**
+     * Various information concerning the context, stored on
+     * each tick to allow for certain features (auto-refill,
+     * sorting on pick up...)
+     */
+    private int storedStackId = 0, storedStackDamage = -1, storedFocusedSlot = -1;
+    private ItemStack[] hotbarClone = new ItemStack[Const.INVENTORY_HOTBAR_SIZE];
+    private boolean mouseWasInWindow = true, mouseWasDown = false;;
+    
+    /**
+     * Allows to trigger some logic only every Const.POLLING_DELAY.
+     */
+    private int tickNumber = 0, lastPollingTickNumber = -Const.POLLING_DELAY;
 
-					do {
-						if(this.isMultiplayerWorld() && currentSlot == -1) {
-							try {
-								Thread.sleep(3L);
-							} catch (InterruptedException interruptedException14) {
-							}
-						}
 
-						for(int prefferedPositions = 0; prefferedPositions < 9; ++prefferedPositions) {
-							ItemStack tree = e.getItemStack(prefferedPositions + 27);
-							if(tree != null && tree.bobbingAnimationTime == 5 && this.hotbarClone[prefferedPositions] == null) {
-								currentSlot = prefferedPositions + 27;
-							}
-						}
-					} while(this.isMultiplayerWorld() && currentSlot == -1);
+    static {
+        log.setLevel(Const.DEFAULT_LOG_LEVEL);
+        //instance.cfgManager = new InvTweaksConfigManager(instance.mc);
+        if (instance.cfgManager.makeSureConfigurationIsLoaded()) {
+            log.info("Mod initialized");
+        } else {
+            log.severe("Mod failed to initialize!");
+        }
+    }
 
-					if(currentSlot != -1) {
-						LinkedList linkedList17 = new LinkedList();
-						ItemTree itemTree18 = config.getTree();
-						ItemStack stack = e.getItemStack(currentSlot);
-						List items = itemTree18.getItems(this.getItemID(stack), this.getItemDamage(stack));
-						Iterator i = config.getRules().iterator();
+    /**
+     * To be called every time the sorting key is pressed.
+     * Sorts the inventory.
+     */
+    public final void onSortingKeyPressed() {
+        synchronized (this) {
+            if (!cfgManager.makeSureConfigurationIsLoaded()) {
+                return;
+            }
 
-						while(true) {
-							SortingRule hasToBeMoved;
-							do {
-								if(!i.hasNext()) {
-									boolean z19 = true;
-									Iterator iterator21 = linkedList17.iterator();
+            // Check config loading success & current GUI
+            Screen guiScreen = getCurrentScreen();
+            if (guiScreen != null && !(guiScreen instanceof HandledScreen) /* GuiContainer */) {
 
-									int i20;
-									while(iterator21.hasNext()) {
-										i20 = ((Integer)iterator21.next()).intValue();
+                return;
+            }
 
-										try {
-											if(i20 == currentSlot) {
-												z19 = false;
-												break;
-											}
+            // Sorting!
+            handleSorting(guiScreen);
+        }
+    }
 
-											if(e.getItemStack(i20) == null && e.move(currentSlot, i20)) {
-												break;
-											}
-										} catch (TimeoutException timeoutException15) {
-											this.logInGameError("Failed to move picked up stack", timeoutException15);
-										}
-									}
+    /**
+     * To be called everytime a stack has been picked up.
+     * Moves the picked up item in anothet slot that matches best the current configuration.
+     */
+    public void onItemPickup() {
 
-									if(z19) {
-										for(i20 = 0; i20 < e.getSize() && (e.getItemStack(i20) != null || !e.move(currentSlot, i20)); ++i20) {
-										}
-									}
+        if (!cfgManager.makeSureConfigurationIsLoaded()) {
+            return;
+        }
+        InvTweaksConfig config = cfgManager.getConfig();
+        // Handle option to disable this feature
+        if (cfgManager.getConfig().getProperty(InvTweaksConfig.PROP_ENABLE_SORTING_ON_PICKUP).equals("false")) {
+            return;
+        }
 
-									return;
-								}
+        try {
+            ContainerSectionManager containerMgr = new ContainerSectionManager(ContainerSection.INVENTORY);
 
-								hasToBeMoved = (SortingRule)i.next();
-							} while(!itemTree18.matches(items, hasToBeMoved.getKeyword()));
+            // Find stack slot (look in hotbar only).
+            // We're looking for a brand new stack in the hotbar
+            // (not an existing stack whose amount has been increased)
+            int currentSlot = -1;
+            do {
+                // In SMP, we have to wait first for the inventory update
+                if (isMultiplayerWorld() && currentSlot == -1) {
+                    try {
+                        Thread.sleep(Const.POLLING_DELAY);
+                    } catch (InterruptedException e) {
+                        // Do nothing (sleep interrupted)
+                    }
+                }
+                for (int i = 0; i < Const.INVENTORY_HOTBAR_SIZE; i++) {
+                    ItemStack currentHotbarStack = containerMgr.getItemStack(i + 27);
+                    // Don't move already started stacks
+                    if (currentHotbarStack != null && currentHotbarStack.bobbingAnimationTime == 5 && hotbarClone[i] == null) {
+                        currentSlot = i + 27;
+                    }
+                }
 
-							int[] i13;
-							int i12 = (i13 = hasToBeMoved.getPreferredSlots()).length;
+                // The loop is only relevant in SMP (polling)
+            } while (isMultiplayerWorld() && currentSlot == -1);
 
-							for(int e1 = 0; e1 < i12; ++e1) {
-								int slot = i13[e1];
-								linkedList17.add(slot);
-							}
-						}
-					}
-				} catch (Exception exception16) {
-					this.logInGameError("Failed to move picked up stack", exception16);
-				}
+            if (currentSlot != -1) {
 
-			}
-		}
-	}
+                // Find preffered slots
+                List<Integer> prefferedPositions = new LinkedList<Integer>();
+                ItemTree tree = config.getTree();
+                ItemStack stack = containerMgr.getItemStack(currentSlot);
+                List<ItemTreeItem> items = tree.getItems(getItemID(stack),
+                        getItemDamage(stack));
+                for (SortingRule rule : config.getRules()) {
+                    if (tree.matches(items, rule.getKeyword())) {
+                        for (int slot : rule.getPreferredSlots()) {
+                            prefferedPositions.add(slot);
+                        }
+                    }
+                }
 
-	public void onTickInGame() {
-		synchronized(this) {
-			if(this.onTick()) {
-				this.handleAutoRefill();
-			}
-		}
-	}
+                // Find best slot for stack
+                boolean hasToBeMoved = true;
+                if (prefferedPositions != null) {
+                    for (int newSlot : prefferedPositions) {
+                        try {
+                            // Already in the best slot!
+                            if (newSlot == currentSlot) {
+                                hasToBeMoved = false;
+                                break;
+                            }
+                            // Is the slot available?
+                            else if (containerMgr.getItemStack(newSlot) == null) {
+                                // TODO: Check rule level before to move
+                                if (containerMgr.move(currentSlot, newSlot)) {
+                                    break;
+                                }
+                            }
+                        } catch (TimeoutException e) {
+                            logInGameError("Failed to move picked up stack", e);
+                        }
+                    }
+                }
 
-	public void onTickInGUI(Screen guiScreen) {
-		synchronized(this) {
-			if(this.onTick()) {
-				if(this.isTimeForPolling()) {
-					this.unlockKeysIfNecessary();
-				}
+                // Else, put the slot anywhere
+                if (hasToBeMoved) {
+                    for (int i = 0; i < containerMgr.getSize(); i++) {
+                        if (containerMgr.getItemStack(i) == null) {
+                            if (containerMgr.move(currentSlot, i)) {
+                                break;
+                            }
+                        }
+                    }
+                }
 
-				this.handleGUILayout(guiScreen);
-				this.handleMiddleClick(guiScreen);
-				this.handleShortcuts(guiScreen);
-			}
-		}
-	}
+            }
+            
+        } catch (Exception e) {
+            logInGameError("Failed to move picked up stack", e);
+        }
+    }
 
-	public void logInGame(String message) {
-		String formattedMsg = this.buildlogString(Level.INFO, message);
-		this.addChatMessage(formattedMsg);
-		log.info(formattedMsg);
-	}
+    /**
+     * To be called on each tick during the game (except when in a menu).
+     * Handles the auto-refill.
+     */
+    public void onTickInGame() {
+        synchronized (this) {
+            if (!onTick()) {
+                return;
+            }
+            handleAutoRefill();
+        }
+    }
+    
+    /**
+     * To be called on each tick when a menu is open.
+     * Handles the GUi additions and the middle clicking.
+     * @param guiScreen
+     */
+    public void onTickInGUI(Screen guiScreen) {
+        synchronized (this) {
+            if (!onTick()) {
+                return;
+            }
+            if (isTimeForPolling()) {
+                unlockKeysIfNecessary();
+            }
+            handleGUILayout(guiScreen);
+            handleMiddleClick(guiScreen);
+            handleShortcuts(guiScreen);
+        }
+    }
 
-	public void logInGameError(String message, Exception e) {
-		String formattedMsg = this.buildlogString(Level.SEVERE, message, e);
-		this.addChatMessage(formattedMsg);
-		log.error(formattedMsg);
-		e.printStackTrace();
-	}
+    public void logInGame(String message) {
+        String formattedMsg = buildlogString(Level.INFO, message);
+        addChatMessage(formattedMsg);
+        log.info(formattedMsg);
+    }
 
-	public static boolean getIsMouseOverSlot(HandledScreen guiContainer, Slot slot, int i, int j) {
-		int k = (guiContainer.width - guiContainer.backgroundWidth) / 2;
-		int l = (guiContainer.height - guiContainer.backgroundHeight) / 2;
-		i -= k;
-		j -= l;
-		return i >= slot.x - 1 && i < slot.x + 16 + 1 && j >= slot.y - 1 && j < slot.y + 16 + 1;
-	}
+    public void logInGameError(String message, Exception e) {
+        String formattedMsg = buildlogString(Level.SEVERE, message, e);
+        addChatMessage(formattedMsg);
+        log.severe(formattedMsg);
+    }
 
-	private boolean onTick() {
-		++this.tickNumber;
-		InvTweaksConfig config = this.cfgManager.getConfig();
-		if(config == null) {
-			return false;
-		} else {
-			Screen currentScreen = this.getCurrentScreen();
-			if(currentScreen == null || currentScreen instanceof InventoryScreen) {
-				this.cloneHotbar();
-			}
+    public static void logInGameStatic(String message) {
+        InvTweaks.getInstance().logInGame(message);
+    }
 
-			if(Keyboard.isKeyDown(this.getKeycode(Const.SORT_KEY_BINDING))) {
-				long currentTime = System.currentTimeMillis();
-				if(this.sortingKeyPressedDate == 0L) {
-					this.sortingKeyPressedDate = currentTime;
-				} else if(currentTime - this.sortingKeyPressedDate > 1000L) {
-					String previousRuleset = config.getCurrentRulesetName();
-					String newRuleset = config.switchConfig();
-					if(newRuleset == null) {
-						this.logInGameError("Failed to switch the configuration", null);
-					} else if(!previousRuleset.equals(newRuleset)) {
-						this.logInGame("\'" + newRuleset + "\' enabled");
-						this.handleSorting(currentScreen);
-					}
+    public static void logInGameErrorStatic(String message, Exception e) {
+        InvTweaks.getInstance().logInGameError(message, e);
+    }
 
-					this.sortingKeyPressedDate = currentTime;
-				}
-			} else {
-				this.sortingKeyPressedDate = 0L;
-			}
+    /**
+     * Returns the mods single instance.
+     * @return
+     */
+    public static InvTweaks getInstance() {
+        return instance;
+    }
 
-			return true;
-		}
-	}
+    // Used by ShortcutsHandler only, but put here for convenience and 
+    // performance, since the xSize/ySize attributes are protected
+    public static boolean getIsMouseOverSlot(HandledScreen guiContainer, Slot slot, int i, int j) { // Copied from GuiContainer
+     // Copied from GuiContainer
+        int k = (guiContainer.width - guiContainer.backgroundWidth) / 2;
+        int l = (guiContainer.height - guiContainer.backgroundHeight) / 2;
+        i -= k;
+        j -= l;
+        return i >= slot.x - 1 && i < slot.x + 16 + 1 && j >= slot.y - 1 && j < slot.y + 16 + 1;
+    }
 
-	private void handleSorting(Screen guiScreen) {
-		ItemStack selectedItem = this.getMainInventory()[this.getFocusedSlot()];
-		InvTweaksConfig config = this.cfgManager.getConfig();
-		Vector downKeys = this.cfgManager.getShortcutsHandler().getDownShortcutKeys();
-		if(Keyboard.isKeyDown(Const.SORT_KEY_BINDING.code)) {
-			Iterator iterator6 = downKeys.iterator();
+    private boolean onTick() {
 
-			while(iterator6.hasNext()) {
-				int e = ((Integer)iterator6.next()).intValue();
-				String newRuleset = null;
-				switch(e) {
-				case 2:
-				case 79:
-					newRuleset = config.switchConfig(0);
-					break;
-				case 3:
-				case 80:
-					newRuleset = config.switchConfig(1);
-					break;
-				case 4:
-				case 81:
-					newRuleset = config.switchConfig(2);
-					break;
-				case 5:
-				case 75:
-					newRuleset = config.switchConfig(3);
-					break;
-				case 6:
-				case 76:
-					newRuleset = config.switchConfig(4);
-					break;
-				case 7:
-				case 77:
-					newRuleset = config.switchConfig(5);
-					break;
-				case 8:
-				case 71:
-					newRuleset = config.switchConfig(6);
-					break;
-				case 9:
-				case 72:
-					newRuleset = config.switchConfig(7);
-					break;
-				case 10:
-				case 73:
-					newRuleset = config.switchConfig(8);
-				}
+        tickNumber++;
+        
+        // Not calling "cfgManager.makeSureConfigurationIsLoaded()" for performance reasons
+        InvTweaksConfig config = cfgManager.getConfig();
+        if (config == null) { 
+            return false;
+        }
+        
+        // Clone the hotbar to be able to monitor changes on it
+        Screen currentScreen = getCurrentScreen();
+        if (currentScreen == null || currentScreen instanceof InventoryScreen) {
+            cloneHotbar();
+        }
 
-			}
-		}
+        // If the key is hold for 1s, switch config
+        if (Keyboard.isKeyDown(getKeycode(Const.SORT_KEY_BINDING))) {
+            long currentTime = System.currentTimeMillis();
+            if (sortingKeyPressedDate == 0) {
+                sortingKeyPressedDate = currentTime;
+            } else if (currentTime - sortingKeyPressedDate > Const.RULESET_SWAP_DELAY) {
+                String previousRuleset = config.getCurrentRulesetName();
+                String newRuleset = config.switchConfig();
+                if (newRuleset == null) {
+                    logInGameError("Failed to switch the configuration", null);
+                }
+                // Log only if there is more than 1 ruleset
+                else if (!previousRuleset.equals(newRuleset)) {
+                    logInGame("'" + newRuleset + "' enabled");
+                    handleSorting(currentScreen);
+                }
+                sortingKeyPressedDate = currentTime;
+            }
+        } else {
+            sortingKeyPressedDate = 0;
+        }
 
-		try {
-			(new SortingHandler(Minecraft.INSTANCE, this.cfgManager.getConfig(), ContainerManager.ContainerSection.INVENTORY, 3)).sort();
-		} catch (Exception exception8) {
-			this.logInGame("Failed to sort inventory: " + exception8.getMessage());
-		}
+        return true;
 
-		this.playClick();
-		if(selectedItem != null && this.getMainInventory()[this.getFocusedSlot()] == null) {
-			this.storedStackId = 0;
-		}
+    }
 
-	}
+    private void handleSorting(Screen guiScreen) {
 
-	private void handleAutoRefill() {
-		ItemStack currentStack = this.getFocusedStack();
-		int currentStackId = currentStack == null ? 0 : this.getItemID(currentStack);
-		int currentStackDamage = currentStack == null ? 0 : this.getItemDamage(currentStack);
-		int focusedSlot = this.getFocusedSlot() + 27;
-		InvTweaksConfig config = this.cfgManager.getConfig();
-		if(currentStackId != this.storedStackId || currentStackDamage != this.storedStackDamage) {
-			if(this.storedFocusedSlot != focusedSlot) {
-				this.storedFocusedSlot = focusedSlot;
-			} else if((currentStack == null || this.getItemID(currentStack) == 281 && this.storedStackId == 282) && (this.getCurrentScreen() == null || this.getCurrentScreen() instanceof SignEditScreen) && config.isAutoRefillEnabled(this.storedStackId, this.storedStackId)) {
-				try {
-					this.cfgManager.getAutoRefillHandler().autoRefillSlot(focusedSlot, this.storedStackId, this.storedStackDamage);
-				} catch (Exception exception7) {
-					this.logInGameError("Failed to trigger auto-refill", exception7);
-				}
-			}
-		}
+        ItemStack selectedItem = getMainInventory()[getFocusedSlot()];
 
-		this.storedStackId = currentStackId;
-		this.storedStackDamage = currentStackDamage;
-	}
+        // Switch between configurations
+        InvTweaksConfig config = cfgManager.getConfig();
+        Vector<Integer> downKeys = cfgManager.getShortcutsHandler().getDownShortcutKeys();
+        if (Keyboard.isKeyDown(Const.SORT_KEY_BINDING.code)) {
+            for (int downKey : downKeys) {
+                String newRuleset = null;
+                switch (downKey) {
+                case Keyboard.KEY_1:
+                case Keyboard.KEY_NUMPAD1:
+                    newRuleset = config.switchConfig(0);
+                    break;
+                case Keyboard.KEY_2:
+                case Keyboard.KEY_NUMPAD2:
+                    newRuleset = config.switchConfig(1);
+                    break;
+                case Keyboard.KEY_3:
+                case Keyboard.KEY_NUMPAD3:
+                    newRuleset = config.switchConfig(2);
+                    break;
+                case Keyboard.KEY_4:
+                case Keyboard.KEY_NUMPAD4:
+                    newRuleset = config.switchConfig(3);
+                    break;
+                case Keyboard.KEY_5:
+                case Keyboard.KEY_NUMPAD5:
+                    newRuleset = config.switchConfig(4);
+                    break;
+                case Keyboard.KEY_6:
+                case Keyboard.KEY_NUMPAD6:
+                    newRuleset = config.switchConfig(5);
+                    break;
+                case Keyboard.KEY_7:
+                case Keyboard.KEY_NUMPAD7:
+                    newRuleset = config.switchConfig(6);
+                    break;
+                case Keyboard.KEY_8:
+                case Keyboard.KEY_NUMPAD8:
+                    newRuleset = config.switchConfig(7);
+                    break;
+                case Keyboard.KEY_9:
+                case Keyboard.KEY_NUMPAD9:
+                    newRuleset = config.switchConfig(8);
+                    break;
+                }
+                if (newRuleset != null) {
+                    logInGame("'" + newRuleset + "' enabled");
+                }
+            }
+        }
+        
+        // Sorting
+        try {
+            new SortingHandler(cfgManager.getConfig(),
+                    ContainerSection.INVENTORY,
+                    SortingHandler.ALGORITHM_INVENTORY).sort();
+        } catch (Exception e) {
+            logInGame("Failed to sort inventory: " + e.getMessage());
+        }
 
-	private void handleMiddleClick(Screen guiScreen) {
-		if(Mouse.isButtonDown(2)) {
-			if(!this.cfgManager.makeSureConfigurationIsLoaded()) {
-				return;
-			}
+        playClick();
 
-			InvTweaksConfig config = this.cfgManager.getConfig();
-			if(config.getProperty("enableMiddleClick").equals("true") && !this.chestAlgorithmButtonDown) {
-				this.chestAlgorithmButtonDown = true;
-				if(this.isChestOrDispenser(guiScreen)) {
-					HandledScreen guiContainer = (HandledScreen)guiScreen;
-					ScreenHandler container = this.getContainer((HandledScreen)guiScreen);
-					int slotCount = this.getSlots(container).size();
-					int mouseX = Mouse.getEventX() * guiContainer.width / Minecraft.INSTANCE.displayWidth;
-					int mouseY = guiContainer.height - Mouse.getEventY() * guiContainer.height / Minecraft.INSTANCE.displayHeight - 1;
-					int target = 0;
+        // This needs to be remembered so that the
+        // auto-refill feature doesn't trigger
+        if (selectedItem != null && getMainInventory()[getFocusedSlot()] == null) {
+            storedStackId = 0;
+        }
 
-					for(int timestamp = 0; timestamp < slotCount; ++timestamp) {
-						Slot slot = this.getSlot(container, timestamp);
-						int e = (guiContainer.width - guiContainer.backgroundWidth) / 2;
-						int l = (guiContainer.height - guiContainer.backgroundHeight) / 2;
-						if(mouseX - e >= slot.x - 1 && mouseX - e < slot.x + 16 + 1 && mouseY - l >= slot.y - 1 && mouseY - l < slot.y + 16 + 1) {
-							target = timestamp < slotCount - 36 ? 1 : 2;
-							break;
-						}
-					}
+    }
 
-					if(target == 1) {
-						Minecraft.INSTANCE.world.playSound(this.getThePlayer(), "random.click", 0.2F, 1.8F);
-						long j14 = System.currentTimeMillis();
-						if(j14 - this.chestAlgorithmClickTimestamp > 3000L) {
-							this.chestAlgorithm = 0;
-						}
+    private void handleAutoRefill() {
+    
+        ItemStack currentStack = getFocusedStack();
+        int currentStackId = (currentStack == null) ? 0 : getItemID(currentStack);
+        int currentStackDamage = (currentStack == null) ? 0 : getItemDamage(currentStack);
+        int focusedSlot = getFocusedSlot() + 27; // Convert to container slots index
+        InvTweaksConfig config = cfgManager.getConfig();
+        
+        if (currentStackId != storedStackId || currentStackDamage != storedStackDamage) {
+    
+            if (storedFocusedSlot != focusedSlot) { // Filter selection change
+                storedFocusedSlot = focusedSlot;
+            } else if ((currentStack == null || getItemID(currentStack) == 281 && storedStackId == 282)  // Handle eaten mushroom soup
+                    && (getCurrentScreen() == null || // Filter open inventory or other window
+                    getCurrentScreen() instanceof SignEditScreen /* GuiEditSign */)) {
+    
+                if (config.isAutoRefillEnabled(storedStackId, storedStackId)) {
+                    try {
+                        cfgManager.getAutoRefillHandler().autoRefillSlot(focusedSlot, storedStackId, storedStackDamage);
+                    } catch (Exception e) {
+                        logInGameError("Failed to trigger auto-refill", e);
+                    }
+                }
+            }
+        }
+    
+        storedStackId = currentStackId;
+        storedStackDamage = currentStackDamage;
+    
+    }
 
-						try {
-							(new SortingHandler(Minecraft.INSTANCE, this.cfgManager.getConfig(), ContainerManager.ContainerSection.CHEST, this.chestAlgorithm)).sort();
-						} catch (Exception exception13) {
-							this.logInGameError("Failed to sort container", exception13);
-						}
+    private void handleMiddleClick(Screen guiScreen) {
+    
+        if (Mouse.isButtonDown(2)) {
+    
+            if (!cfgManager.makeSureConfigurationIsLoaded()) {
+                return;
+            }
+            InvTweaksConfig config = cfgManager.getConfig();
+    
+            // Check that middle click sorting is allowed
+            if (config.getProperty(InvTweaksConfig.PROP_ENABLE_MIDDLE_CLICK)
+                    .equals(InvTweaksConfig.VALUE_TRUE)) {
+    
+                if (!chestAlgorithmButtonDown) {
+                    chestAlgorithmButtonDown = true;
+    
+                    if (isChestOrDispenser(guiScreen)) {
+    
+                        // Check if the middle click target the chest or the
+                        // inventory
+                        // (copied GuiContainer.getSlotAtPosition algorithm)
+                        HandledScreen guiContainer = (HandledScreen) guiScreen;
+                        ScreenHandler container = getContainer(guiContainer);
+                        int slotCount = getSlots(container).size();
+                        int mouseX = (Mouse.getEventX() * guiContainer.width) / mc.displayWidth;
+                        int mouseY = guiContainer.height - (Mouse.getEventY() * guiContainer.height) / mc.displayHeight - 1;
+                        int target = 0; // 0 = nothing, 1 = chest, 2 = inventory
+                        for (int i = 0; i < slotCount; i++) {
+                            Slot slot = getSlot(container, i);
+                            int k = (guiContainer.width - guiContainer.backgroundWidth) / 2;
+                            int l = (guiContainer.height - guiContainer.backgroundHeight) / 2;
+                            if (mouseX - k >= slot.x - 1 &&
+                                    mouseX - k < slot.x + 16 + 1 &&
+                                    mouseY - l >= slot.y - 1 &&
+                                    mouseY - l < slot.y + 16 + 1) {
+                                target = (i < slotCount - Const.INVENTORY_SIZE) ? 1 : 2;
+                                break;
+                            }
+                        }
+    
+                        if (target == 1) {
+    
+                            // Play click
+                            mc.world.playSound(getThePlayer(), "random.click", 0.2F, 1.8F);
+    
+                            long timestamp = System.currentTimeMillis();
+                            if (timestamp - chestAlgorithmClickTimestamp > 
+                                    Const.CHEST_ALGORITHM_SWAP_MAX_INTERVAL) {
+                                chestAlgorithm = SortingHandler.ALGORITHM_DEFAULT;
+                            }
+                            try {
+                                new SortingHandler(cfgManager.getConfig(),
+                                        ContainerSection.CHEST, chestAlgorithm).sort();
+                            } catch (Exception e) {
+                                logInGameError("Failed to sort container", e);
+                            }
+                            chestAlgorithm = (chestAlgorithm + 1) % 3;
+                            chestAlgorithmClickTimestamp = timestamp;
+                        } else if (target == 2) {
+                            handleSorting(guiScreen);
+                        }
+    
+                    } else {
+                        handleSorting(guiScreen);
+                    }
+                }
+            }
+        } else {
+            chestAlgorithmButtonDown = false;
+        }
+    }
 
-						this.chestAlgorithm = (this.chestAlgorithm + 1) % 3;
-						this.chestAlgorithmClickTimestamp = j14;
-					} else if(target == 2) {
-						this.handleSorting(guiScreen);
-					}
-				} else {
-					this.handleSorting(guiScreen);
-				}
-			}
-		} else {
-			this.chestAlgorithmButtonDown = false;
-		}
+    @SuppressWarnings("unchecked")
+    private void handleGUILayout(Screen guiScreen) {
 
-	}
+        InvTweaksConfig config = cfgManager.getConfig();
+        boolean isContainer = isChestOrDispenser(guiScreen);
 
-	private void handleGUILayout(Screen guiScreen) {
-		InvTweaksConfig config = this.cfgManager.getConfig();
-		boolean isContainer = this.isChestOrDispenser(guiScreen);
-		if(isContainer || guiScreen instanceof InventoryScreen || guiScreen.getClass().getSimpleName().equals("GuiInventoryMoreSlots")) {
-			byte w = 10;
-			byte h = 10;
-			boolean customButtonsAdded = false;
-			List<ButtonWidget> buttons= guiScreen.buttons;
+        if (isContainer || guiScreen instanceof InventoryScreen
+                || guiScreen.getClass().getSimpleName()
+                        .equals("GuiInventoryMoreSlots") /* Aether mod */) {
 
-			for(ButtonWidget button : buttons) {
-				if(button.id == 54696386) {
-					customButtonsAdded = true;
-					break;
-				}
-			}
+            int w = 10, h = 10;
 
-			if(!customButtonsAdded) {
-				if(!isContainer) {
-					buttons.add(new GuiInventorySettingsButton(this.cfgManager, 54696386, guiScreen.width / 2 + 73, guiScreen.height / 2 - 78, w, h, "...", "Inventory settings"));
-				} else {
-					HandledScreen guiContainer12 = (HandledScreen)guiScreen;
-					int i13 = 54696386;
-					int i14 = guiContainer12.backgroundWidth / 2 + guiContainer12.width / 2 - 17;
-					int y = (guiContainer12.height - guiContainer12.backgroundHeight) / 2 + 5;
-					buttons.add(new GuiInventorySettingsButton(this.cfgManager, i13++, i14 - 1, y, w, h, "...", "Inventory settings"));
-					if(!config.getProperty("showChestButtons").equals("false")) {
-						GuiSortingButton button = new GuiSortingButton(this.cfgManager, i13++, i14 - 13, y, w, h, "h", "Sort in rows", 2);
-						buttons.add(button);
-						button = new GuiSortingButton(this.cfgManager, i13++, i14 - 25, y, w, h, "v", "Sort in columns", 1);
-						buttons.add(button);
-						button = new GuiSortingButton(this.cfgManager, i13++, i14 - 37, y, w, h, "s", "Default sorting", 0);
-						buttons.add(button);
-					}
-				}
-			}
-		}
+            // Look for the mods buttons
+            boolean customButtonsAdded = false;
+            for (Object o : guiScreen.buttons) {
+                ButtonWidget button = (ButtonWidget) o;
+                if (button.id == Const.JIMEOWAN_ID) {
+                    customButtonsAdded = true;
+                    break;
+                }
+            }
 
-	}
+            if (!customButtonsAdded) {
 
-	private void handleShortcuts(Screen guiScreen) {
-		if(guiScreen instanceof HandledScreen && !guiScreen.getClass().getSimpleName().equals("MLGuiChestBuilding")) {
-			if(!Mouse.isButtonDown(0) && !Mouse.isButtonDown(1)) {
-				this.mouseWasDown = false;
-			} else if(!this.mouseWasDown) {
-				this.mouseWasDown = true;
-				if(this.cfgManager.getConfig().getProperty("enableShortcuts").equals("true")) {
-					this.cfgManager.getShortcutsHandler().handleShortcut((HandledScreen)guiScreen);
-				}
-			}
+                // Inventory button
+                if (!isContainer) {
+                    guiScreen.buttons.add(new GuiInventorySettingsButton(
+                            cfgManager, Const.JIMEOWAN_ID,
+                            guiScreen.width / 2 + 73, guiScreen.height / 2 - 78,
+                            w, h, "...", "Inventory settings"));
+                }
 
-		}
-	}
+                // Chest buttons
+                else {
 
-	private boolean isTimeForPolling() {
-		if(this.tickNumber - this.lastPollingTickNumber >= 3) {
-			this.lastPollingTickNumber = this.tickNumber;
-		}
+                    HandledScreen guiContainer = (HandledScreen) guiScreen;
+                    int id = Const.JIMEOWAN_ID,
+                        x = guiContainer.backgroundWidth / 2 + guiContainer.width / 2 - 17,
+                        y = (guiContainer.height - guiContainer.backgroundHeight) / 2 + 5;
 
-		return this.tickNumber - this.lastPollingTickNumber == 0;
-	}
+                    // Settings button
+                    guiScreen.buttons.add(new GuiInventorySettingsButton(
+                            cfgManager, id++, 
+                            x - 1, y, w, h, "...", "Inventory settings"));
 
-	private void unlockKeysIfNecessary() {
-		boolean mouseInWindow = Mouse.isInsideWindow();
-		if(!this.mouseWasInWindow && mouseInWindow) {
-			Keyboard.destroy();
-			boolean firstTry = true;
+                    // Sorting buttons
+                    if (!config.getProperty(InvTweaksConfig.PROP_SHOW_CHEST_BUTTONS).equals("false")) {
 
-			while(!Keyboard.isCreated()) {
-				try {
-					Keyboard.create();
-				} catch (LWJGLException lWJGLException4) {
-					if(firstTry) {
-						this.logInGameError("I\'m having troubles with the keyboard: ", lWJGLException4);
-						firstTry = false;
-					}
-				}
-			}
+                        ButtonWidget button = new GuiSortingButton(
+                                cfgManager, id++,
+                                x - 13, y, w, h, "h", "Sort in rows",
+                                SortingHandler.ALGORITHM_HORIZONTAL);
+                        guiContainer.buttons.add(button);
 
-			if(!firstTry) {
-				this.logInGame("Ok it\'s repaired, sorry about that.");
-			}
-		}
+                        button = new GuiSortingButton(
+                                cfgManager, id++,
+                                x - 25, y, w, h, "v", "Sort in columns",
+                                SortingHandler.ALGORITHM_VERTICAL);
+                        guiContainer.buttons.add(button);
 
-		this.mouseWasInWindow = mouseInWindow;
-	}
+                        button = new GuiSortingButton(
+                                cfgManager, id++,
+                                x - 37, y, w, h, "s", "Default sorting",
+                                SortingHandler.ALGORITHM_DEFAULT);
+                        guiContainer.buttons.add(button);
 
-	private void cloneHotbar() {
-		ItemStack[] mainInventory = this.getMainInventory();
+                    }
+                }
+            }
+        }
 
-		for(int i = 0; i < 9; ++i) {
-			if(mainInventory[i] != null) {
-				this.hotbarClone[i] = mainInventory[i].copy();
-			} else {
-				this.hotbarClone[i] = null;
-			}
-		}
+    }
+    
+    private void handleShortcuts(Screen guiScreen) {
+        
+        // Check open GUI
+        if (!(guiScreen instanceof HandledScreen)
+                || guiScreen.getClass().getSimpleName().equals("MLGuiChestBuilding")) { // Millenaire mod
+            return;
+        }
+        
+        if (Mouse.isButtonDown(0) || Mouse.isButtonDown(1)) {
+            if (!mouseWasDown) {
+                mouseWasDown = true;
+                
+                // The mouse has just been clicked,
+                // trigger a shortcut according to the pressed keys.
+                if (cfgManager.getConfig().getProperty(
+                        InvTweaksConfig.PROP_ENABLE_SHORTCUTS).equals("true")) {
+                    cfgManager.getShortcutsHandler().handleShortcut((HandledScreen) guiScreen);
+                }
+            }
+        }
+        else {
+            mouseWasDown = false;
+        }
+    }
 
-	}
+    private boolean isTimeForPolling() {
+        if (tickNumber - lastPollingTickNumber >= Const.POLLING_DELAY) {
+            lastPollingTickNumber = tickNumber;
+        }
+        return tickNumber - lastPollingTickNumber == 0;
+    }
 
-	private void playClick() {
-		if(!this.cfgManager.getConfig().getProperty("enableSortingSound").equals("false")) {
-			Minecraft.INSTANCE.world.playSound(this.getThePlayer(), "random.click", 0.2F, 1.8F);
-		}
+    /**
+     * When the mouse gets inside the window, reset pressed keys
+     * to avoid the "stuck keys" bug.
+     */
+    private void unlockKeysIfNecessary() {
+        boolean mouseInWindow = Mouse.isInsideWindow();
+        if (!mouseWasInWindow && mouseInWindow) {
+            Keyboard.destroy();
+            boolean firstTry = true;
+            while (!Keyboard.isCreated()) {
+                try {
+                    Keyboard.create();
+                } catch (LWJGLException e) {
+                    if (firstTry) {
+                        logInGameError("I'm having troubles with the keyboard: ", e);
+                        firstTry = false;
+                    }
+                }
+            }
+            if (!firstTry) {
+                logInGame("Ok it's repaired, sorry about that.");
+            }
+        }
+        mouseWasInWindow = mouseInWindow;
+    }
 
-	}
+    /**
+     * Allows to maintain a clone of the hotbar contents to track changes
+     * (especially needed by the "on pickup" features).
+     */
+    private void cloneHotbar() {
+        ItemStack[] mainInventory = getMainInventory();
+        for (int i = 0; i < 9; i++) {
+            if (mainInventory[i] != null) {
+                hotbarClone[i] = mainInventory[i].copy();
+            } else {
+                hotbarClone[i] = null;
+            }
+        }
+    }
 
-	private String buildlogString(Level level, String message, Exception e) {
-		return e != null ? this.buildlogString(level, message) + ": " + e.getMessage() : this.buildlogString(level, message) + ": (unknown error)";
-	}
+    private void playClick() {
+        if (!cfgManager.getConfig().getProperty(InvTweaksConfig.PROP_ENABLE_SORTING_SOUND).equals("false")) {
+            mc.world.playSound(getThePlayer(), "random.click", 0.2F, 1.8F);
+        }
+    }
 
-	private String buildlogString(Level level, String message) {
-		return "InvTweaks: " + (level.equals(Level.SEVERE) ? "[ERROR] " : "") + message;
-	}
+    private String buildlogString(Level level, String message, Exception e) {
+        if (e != null) {
+            return buildlogString(level, message) + ": " + e.getMessage();
+        } else {
+            return buildlogString(level, message) + ": (unknown error)";
+        }
+    }
+
+    private String buildlogString(Level level, String message) {
+        return Const.INGAME_LOG_PREFIX + ((level.equals(Level.SEVERE)) ? "[ERROR] " : "") + message;
+    }
+    
 }

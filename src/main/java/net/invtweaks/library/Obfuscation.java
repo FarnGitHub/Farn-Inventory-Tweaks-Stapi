@@ -3,6 +3,7 @@ package net.invtweaks.library;
 import java.io.File;
 import java.util.List;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.InteractionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
@@ -17,154 +18,210 @@ import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 
+/**
+ * Obfuscation layer, used to centralize most calls to Minecraft code.
+ * Eases transitions when Minecraft then MCP are updated.
+ * 
+ * @author Jimeo Wan
+ *
+ */
 public class Obfuscation {
 
-	protected void addChatMessage(String message) {
-		if(Minecraft.INSTANCE.inGameHud != null) {
-			Minecraft.INSTANCE.inGameHud.addChatMessage(message);
-		}
-	}
+    protected Minecraft mc = Minecraft.INSTANCE;
 
-	protected boolean isMultiplayerWorld() {
-		return Minecraft.INSTANCE.isWorldRemote();
-	}
+    public Obfuscation() {
+    }
 
-	protected PlayerEntity getThePlayer() {
-		return Minecraft.INSTANCE.player;
-	}
+    // Minecraft members
 
-	protected InteractionManager getPlayerController() {
-		return Minecraft.INSTANCE.interactionManager;
-	}
+    protected void addChatMessage(String message) {
+        if (mc.inGameHud != null) {
+            mc.inGameHud.addChatMessage(message);
+        }
+    }
 
-	protected Screen getCurrentScreen() {
-		return Minecraft.INSTANCE.currentScreen;
-	}
+    protected boolean isMultiplayerWorld() {
+        return mc.isWorldRemote();
+    }
 
-	protected PlayerInventory getInventoryPlayer() {
-		return this.getThePlayer().inventory;
-	}
+    protected PlayerEntity getThePlayer() {
+        return mc.player;
+    }
 
-	protected ItemStack getCurrentEquippedItem() {
-		return this.getThePlayer().getHeldItem();
-	}
+    protected InteractionManager getPlayerController() {
+        return mc.interactionManager;
+    }
 
-	protected ScreenHandler getCraftingInventory() {
-		return this.getThePlayer().currentScreenHandler;
-	}
+    protected Screen getCurrentScreen() {
+        return mc.currentScreen;
+    }
 
-	protected PlayerScreenHandler getPlayerContainer() {
-		return (PlayerScreenHandler)this.getThePlayer().playerScreenHandler;
-	}
+    // EntityPlayer members
 
-	protected ItemStack[] getMainInventory() {
-		return this.getInventoryPlayer().main;
-	}
+    protected PlayerInventory getInventoryPlayer() {
+        return getThePlayer().inventory;
+    }
 
-	protected void setMainInventory(ItemStack[] value) {
-		this.getInventoryPlayer().main = value;
-	}
+    protected ItemStack getCurrentEquippedItem() {
+        return getThePlayer().getHand();
+    }
 
-	protected void setHasInventoryChanged(boolean value) {
-		this.getInventoryPlayer().dirty = value;
-	}
+    protected ScreenHandler getCraftingInventory() {
+        return getThePlayer().currentScreenHandler;
+    }
 
-	protected void setHoldStack(ItemStack stack) {
-		this.getInventoryPlayer().setCursorStack(stack);
-	}
+    protected PlayerScreenHandler getPlayerContainer() {
+        return (PlayerScreenHandler)getThePlayer().playerScreenHandler; // MCP name: inventorySlots
+    }
 
-	protected boolean hasInventoryChanged() {
-		return this.getInventoryPlayer().dirty;
-	}
+    // InventoryPlayer members
 
-	protected ItemStack getHoldStack() {
-		return this.getInventoryPlayer().getCursorStack();
-	}
+    protected ItemStack[] getMainInventory() {
+        return getInventoryPlayer().main;
+    }
 
-	protected ItemStack getFocusedStack() {
-		return this.getInventoryPlayer().getSelectedItem();
-	}
+    protected void setMainInventory(ItemStack[] value) {
+        getInventoryPlayer().main = value;
+    }
 
-	protected int getFocusedSlot() {
-		return this.getInventoryPlayer().selectedSlot;
-	}
+    protected void setHasInventoryChanged(boolean value) {
+        getInventoryPlayer().dirty = value;
+    }
 
-	protected ItemStack createItemStack(int id, int size, int damage) {
-		return new ItemStack(id, size, damage);
-	}
+    protected void setHoldStack(ItemStack stack) {
+        getInventoryPlayer().setCursorStack(stack); // MCP name: setItemStack
+    }
 
-	protected ItemStack copy(ItemStack itemStack) {
-		return itemStack.copy();
-	}
+    protected boolean hasInventoryChanged() {
+        return getInventoryPlayer().dirty;
+    }
 
-	protected int getItemDamage(ItemStack itemStack) {
-		return itemStack.getDamage();
-	}
+    protected ItemStack getHoldStack() {
+        return getInventoryPlayer().getCursorStack(); // MCP name: getItemStack
+    }
 
-	protected int getMaxStackSize(ItemStack itemStack) {
-		return itemStack.getMaxCount();
-	}
+    protected ItemStack getFocusedStack() {
+        return getInventoryPlayer().getSelectedItem(); // MCP name: getCurrentItem
+    }
 
-	protected int getStackSize(ItemStack itemStack) {
-		return itemStack.count;
-	}
+    protected int getFocusedSlot() {
+        return getInventoryPlayer().selectedSlot; // MCP name: currentItem
+    }
 
-	protected void setStackSize(ItemStack itemStack, int value) {
-		itemStack.count = value;
-	}
+    // ItemStack members
 
-	protected int getItemID(ItemStack itemStack) {
-		return itemStack.itemId;
-	}
+    protected ItemStack createItemStack(int id, int size, int damage) {
+        return new ItemStack(id, size, damage);
+    }
 
+    protected ItemStack copy(ItemStack itemStack) {
+        return itemStack.copy();
+    }
 
-	protected boolean areSameItemType(ItemStack itemStack1, ItemStack itemStack2) {
-		return itemStack1.isItemEqual(itemStack2) || itemStack1.isDamageable() && this.getItemID(itemStack1) == this.getItemID(itemStack2);
-	}
+    protected int getItemDamage(ItemStack itemStack) {
+        return itemStack.getDamage();
+    }
 
-	protected ItemStack clickInventory(InteractionManager playerController, int windowId, int slot, int clickButton, boolean shiftHold, PlayerEntity entityPlayer) {
-		return playerController.clickSlot(windowId, slot, clickButton, shiftHold, entityPlayer);
-	}
+    protected int getMaxStackSize(ItemStack itemStack) {
+        return itemStack.getMaxCount();
+    }
 
-	protected int getWindowId(ScreenHandler container) {
-		return container.syncId;
-	}
+    protected int getStackSize(ItemStack itemStack) {
+        return itemStack.count;
+    }
 
-	protected List getSlots(ScreenHandler container) {
-		return container.slots;
-	}
+    protected void setStackSize(ItemStack itemStack, int value) {
+        itemStack.count = value;
+    }
 
-	protected Slot getSlot(ScreenHandler container, int i) {
-		return (Slot)this.getSlots(container).get(i);
-	}
+    protected int getItemID(ItemStack itemStack) {
+        return itemStack.itemId;
+    }
 
-	protected ItemStack getSlotStack(ScreenHandler container, int i) {
-		Slot slot = (Slot)this.getSlots(container).get(i);
-		return slot == null ? null : slot.getStack();
-	}
+    protected boolean areItemStacksEqual(ItemStack itemStack1, ItemStack itemStack2) {
+        return ItemStack.areEqual(itemStack1, itemStack2);
+    }
+    
+    protected boolean areSameItemType(ItemStack itemStack1, ItemStack itemStack2) {
+        return itemStack1.isItemEqual(itemStack2) ||
+                (itemStack1.isDamageable() &&
+                        getItemID(itemStack1) == getItemID(itemStack2));
+    }
 
-	protected ScreenHandler getContainer(HandledScreen guiContainer) {
-		return guiContainer.container;
-	}
+    // PlayerController members
 
-	protected boolean isChestOrDispenser(Screen guiScreen) {
-		return guiScreen instanceof DoubleChestScreen || guiScreen instanceof DispenserScreen;
-	}
+    protected ItemStack clickInventory(InteractionManager playerController,
+            int windowId, int slot, int clickButton, boolean shiftHold,
+            PlayerEntity entityPlayer) {
+        return playerController.clickSlot(windowId, slot, clickButton,
+                shiftHold, entityPlayer); /* func_27174_a */
+    }
 
-	protected int getKeycode(KeyBinding keyBinding) {
-		return keyBinding.code;
-	}
+    // Container members
 
-	public static String getMinecraftDir() {
-		String absolutePath = Minecraft.getRunDirectory().getAbsolutePath();
-		return absolutePath.endsWith(".") ? absolutePath.substring(0, absolutePath.length() - 1) : (absolutePath.endsWith(File.separator) ? absolutePath : absolutePath + File.separatorChar);
-	}
+    protected int getWindowId(ScreenHandler container) {
+        return container.syncId;
+    }
 
-	public static ItemStack getHoldStackStatic() {
-		return Minecraft.INSTANCE.player.getHand();
-	}
+    protected List<?> getSlots(ScreenHandler container) {
+        return container.slots;
+    }
 
-	public static Screen getCurrentScreenStatic() {
-		return Minecraft.INSTANCE.currentScreen;
-	}
+    protected Slot getSlot(ScreenHandler container, int i) {
+        return (Slot) getSlots(container).get(i);
+    }
+
+    protected ItemStack getSlotStack(ScreenHandler container, int i) {
+        Slot slot = (Slot) getSlots(container).get(i);
+        return (slot == null) ? null : slot.getStack(); /* getStack */
+    }
+
+    protected void setSlotStack(ScreenHandler container, int i, ItemStack stack) {
+        container.setStackInSlot(i, stack); /* putStackInSlot */
+    }
+
+    // GuiContainer members
+
+    protected ScreenHandler getContainer(HandledScreen guiContainer) {
+        return guiContainer.container;
+    }
+
+    // Other
+
+    protected boolean isChestOrDispenser(Screen guiScreen) {
+        return ((guiScreen instanceof DoubleChestScreen /* GuiChest */
+                && !guiScreen.getClass().getSimpleName().equals("MLGuiChestBuilding")) // Millenaire mod
+        || guiScreen instanceof DispenserScreen /* GuiDispenser */);
+    }
+    
+    protected int getKeycode(KeyBinding keyBinding) {
+        return keyBinding.code;
+    }
+    
+    // Static access
+
+    /**
+     * Returns the Minecraft folder ensuring: - It is an absolute path - It ends
+     * with a folder separator
+     */
+    public static String getMinecraftDir() {
+        String absolutePath = FabricLoader.getInstance().getGameDir().toFile().getAbsolutePath();
+        if (absolutePath.endsWith(".")) {
+            return absolutePath.substring(0, absolutePath.length() - 1);
+        }
+        if (absolutePath.endsWith(File.separator)) {
+            return absolutePath;
+        } else {
+            return absolutePath + File.separatorChar;
+        }
+    }
+    
+    public static ItemStack getHoldStackStatic() {
+        return new Obfuscation().getHoldStack();
+    }
+
+    public static Screen getCurrentScreenStatic() {
+        return new Obfuscation().getCurrentScreen();
+    }
+
 }

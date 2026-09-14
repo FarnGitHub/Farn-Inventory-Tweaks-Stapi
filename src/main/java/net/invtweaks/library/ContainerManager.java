@@ -1,276 +1,482 @@
 package net.invtweaks.library;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.*;
 import net.minecraft.screen.slot.Slot;
 
+/**
+ * Allows to perform various operations on the inventory
+ * and/or containers. Works in both single and multiplayer.
+ * 
+ * @author Jimeo Wan
+ *
+ */
 public class ContainerManager extends Obfuscation {
-	public static final int DROP_SLOT = -999;
-	public static final int INVENTORY_SIZE = 36;
-	public static final int HOTBAR_SIZE = 9;
-	public static final int ACTION_TIMEOUT = 500;
-	public static final int POLLING_DELAY = 3;
-	private ScreenHandler container;
-	private Map<ContainerManager.ContainerSection, List<Slot>> slotRefs = new HashMap();
+	
+    // TODO: Throw errors when the container isn't available anymore
 
-	public ContainerManager() {
-		Screen currentScreen = this.getCurrentScreen();
-		if(currentScreen instanceof HandledScreen) {
-			this.container = this.getContainer((HandledScreen) currentScreen);
-		} else {
-			this.container = this.getPlayerContainer();
-		}
+    public static final int DROP_SLOT = -999;
+    public static final int INVENTORY_SIZE = 36;
+    public static final int HOTBAR_SIZE = 9;
+    public static final int ACTION_TIMEOUT = 500;
+    public static final int POLLING_DELAY = 3;
+    
+    public enum ContainerSection{
+        /** The player's inventory */ INVENTORY,
+        /** The player's inventory (only the hotbar) */ INVENTORY_HOTBAR,
+        /** The player's inventory (all except the hotbar) */ INVENTORY_NOT_HOTBAR,
+        /** The chest or dispenser contents */ CHEST,
+        /** The crafting input */ CRAFTING_IN,
+        /** The crafting output */ CRAFTING_OUT,
+        /** The armor slots */ ARMOR,
+        /** The furnace input */ FURNACE_IN,
+        /** The furnace output */ FURNACE_OUT,
+        /** The furnace fuel */ FURNACE_FUEL,
+        /** Any other type of slot. For unknown container types (such as
+         * mod containers), only INVENTORY and OTHER sections are defined. */
+        UNKNOWN
+    }
+    
+    private ScreenHandler container;
+    private Map<ContainerSection, List<Slot>> slotRefs = new HashMap<ContainerSection, List<Slot>>();
+    
+    
+    /**
+     * Creates an container manager linked to the currently available container:
+     * - If a container GUI is open, the manager gives access to this container contents.
+     * - If no GUI is open, the manager works as if the player's inventory was open.
+     */
+    @SuppressWarnings({"unchecked"})
+    public ContainerManager() {
+        super();
+        
+        Screen currentScreen = getCurrentScreen();
+        if (currentScreen instanceof HandledScreen handled) {
+            this.container = getContainer(handled);
+        }
+        else {
+            this.container = getPlayerContainer();
+        }
+        
+        List<Slot> slots = container.slots;
+        int size = slots.size();
+        boolean guiWithInventory = true;
 
-		List<Slot> slots = this.container.slots;
-		int size = slots.size();
-		boolean guiWithInventory = true;
-		if(this.container instanceof PlayerScreenHandler) {
-			this.slotRefs.put(ContainerManager.ContainerSection.CRAFTING_OUT, slots.subList(0, 1));
-			this.slotRefs.put(ContainerManager.ContainerSection.CRAFTING_IN, slots.subList(1, 5));
-			this.slotRefs.put(ContainerManager.ContainerSection.ARMOR, slots.subList(5, 9));
-		} else if(!(this.container instanceof GenericContainerScreenHandler) && !(this.container instanceof DispenserScreenHandler)) {
-			if(this.container instanceof FurnaceScreenHandler) {
-				this.slotRefs.put(ContainerManager.ContainerSection.FURNACE_IN, slots.subList(0, 1));
-				this.slotRefs.put(ContainerManager.ContainerSection.FURNACE_FUEL, slots.subList(1, 2));
-				this.slotRefs.put(ContainerManager.ContainerSection.FURNACE_OUT, slots.subList(2, 3));
-			} else if(this.container instanceof CraftingScreenHandler) {
-				this.slotRefs.put(ContainerManager.ContainerSection.CRAFTING_OUT, slots.subList(0, 1));
-				this.slotRefs.put(ContainerManager.ContainerSection.CRAFTING_IN, slots.subList(1, 10));
-			} else if(size >= 36) {
-				this.slotRefs.put(ContainerManager.ContainerSection.UNKNOWN, slots.subList(0, size - 36));
-			} else {
-				guiWithInventory = false;
-				this.slotRefs.put(ContainerManager.ContainerSection.UNKNOWN, slots.subList(0, size));
-			}
-		} else {
-			this.slotRefs.put(ContainerManager.ContainerSection.CHEST, slots.subList(0, size - 36));
-		}
+        // Inventory: 4 crafting slots, then 4 armor slots, then inventory
+        if (container instanceof PlayerScreenHandler) {
+            slotRefs.put(ContainerSection.CRAFTING_OUT, slots.subList(0, 1));
+            slotRefs.put(ContainerSection.CRAFTING_IN, slots.subList(1, 5));
+            slotRefs.put(ContainerSection.ARMOR, slots.subList(5, 9));
+        }
+        
+        // Chest/Dispenser
+        else if ((container instanceof GenericContainerScreenHandler)
+                || (container instanceof DispenserScreenHandler)) {
+            slotRefs.put(ContainerSection.CHEST, slots.subList(0, size-INVENTORY_SIZE));
+        }
+        
+        // Furnace
+        else if ((container instanceof FurnaceScreenHandler)) {
+            slotRefs.put(ContainerSection.FURNACE_IN, slots.subList(0, 1));
+            slotRefs.put(ContainerSection.FURNACE_FUEL, slots.subList(1, 2));
+            slotRefs.put(ContainerSection.FURNACE_OUT, slots.subList(2, 3));
+        }
 
-		if(guiWithInventory) {
-			this.slotRefs.put(ContainerManager.ContainerSection.INVENTORY, slots.subList(size - 36, size));
-			this.slotRefs.put(ContainerManager.ContainerSection.INVENTORY_NOT_HOTBAR, slots.subList(size - 36, size - 9));
-			this.slotRefs.put(ContainerManager.ContainerSection.INVENTORY_HOTBAR, slots.subList(size - 9, size));
-		}
+        // Workbench
+        else if ((container instanceof CraftingScreenHandler)) {
+            slotRefs.put(ContainerSection.CRAFTING_OUT, slots.subList(0, 1));
+            slotRefs.put(ContainerSection.CRAFTING_IN, slots.subList(1, 10));
+        }
+        
+        // Unknown
+        else {
+            if (size >= INVENTORY_SIZE) {
+             // Assuming the container ends with the inventory, just like all vanilla containers.
+                slotRefs.put(ContainerSection.UNKNOWN, slots.subList(0, size-INVENTORY_SIZE));
+            }
+            else {
+                guiWithInventory = false;
+                slotRefs.put(ContainerSection.UNKNOWN, slots.subList(0, size));
+            }
+        }
 
+        if (guiWithInventory) {
+            slotRefs.put(ContainerSection.INVENTORY, slots.subList(size-INVENTORY_SIZE, size));
+            slotRefs.put(ContainerSection.INVENTORY_NOT_HOTBAR, slots.subList(size-INVENTORY_SIZE, size-HOTBAR_SIZE));
+            slotRefs.put(ContainerSection.INVENTORY_HOTBAR, slots.subList(size-HOTBAR_SIZE, size));
+        }
+        
+    }
+    
+    /**
+     * Moves a stack from source to destination, adapting the behavior 
+     * according to the context:
+     * - If destination is empty, the source stack is moved.
+     * - If the items can be merged, as much items are possible are put
+     *   in the destination, and the eventual remains go back to the source.
+     * - If the items cannot be merged, they are swapped.
+     * @param srcSection The source section
+     * @param srcIndex The destination slot
+     * @param destSection The destination section
+     * @param destIndex The destination slot
+     * @return false if the source slot is empty or the player is
+     * holding an item that couln't be put down.
+     * @throws TimeoutException 
+     */
+	public boolean move(ContainerSection srcSection, int srcIndex,
+            ContainerSection destSection, int destIndex) throws TimeoutException {
+	    
+	    ItemStack srcStack = getItemStack(srcSection, srcIndex);
+        ItemStack destStack = getItemStack(destSection, destIndex);
+	    
+        if (srcStack == null) {
+            return false;
+        }
+        else if (srcSection == destSection && srcIndex == destIndex) {
+            return true;
+        }
+
+        // Put hold item down
+        if (getHoldStack() != null) {
+            int firstEmptyIndex = getFirstEmptyIndex(ContainerSection.INVENTORY);
+            if (firstEmptyIndex != -1) {
+                leftClick(ContainerSection.INVENTORY, firstEmptyIndex);
+            }
+            else {
+                return false;
+            }
+        }
+        
+        boolean destinationEmpty = getItemStack(destSection, destIndex) == null;
+
+        // Use intermediate slot if we have to swap tools, maps, etc.
+        if (destStack != null
+                && getItemID(srcStack) == getItemID(destStack)
+                && srcStack.getMaxCount() == 1) {
+            int intermediateSlot = getFirstEmptyUsableSlotNumber();
+            ContainerSection intermediateSection = getSlotSection(intermediateSlot);
+            int intermediateIndex = getSlotIndex(intermediateSlot);
+            if (intermediateIndex != -1) {
+                // Step 1/3: Dest > Int
+                leftClick(destSection, destIndex);
+                leftClick(intermediateSection, intermediateIndex);
+                // Step 2/3: Src > Dest
+                leftClick(srcSection, srcIndex);
+                leftClick(destSection, destIndex);
+                // Step 3/3: Int > Src
+                leftClick(intermediateSection, intermediateIndex);
+                leftClick(srcSection, srcIndex);
+            }
+            else {
+                return false;
+            }
+        }
+        
+        // Normal move
+        else {
+            leftClick(srcSection, srcIndex);
+            leftClick(destSection, destIndex);
+            if (!destinationEmpty) {
+                leftClick(srcSection, srcIndex);
+            }
+        }
+        
+      
+        
+        return true;
+    }
+	    
+	/**
+     * Moves some items from source to destination.
+	 * @param srcSection The source section
+	 * @param srcIndex The destination slot
+     * @param destSection The destination section
+     * @param destIndex The destination slot
+	 * @param amount The amount of items to move. If <= 0, does nothing.
+	 * If > to the source stack size, moves as much as possible from the stack size.
+	 * If not all can be moved to the destination, only moves as much as possible.
+	 * @return false if the destination slot is already occupied
+	 * by a different item (meaning items cannot be moved to destination).
+	 * @throws TimeoutException 
+	 */
+	public boolean moveSome(ContainerSection srcSection, int srcIndex,
+	        ContainerSection destSection, int destIndex,
+	        int amount) throws TimeoutException {
+
+        ItemStack source = getItemStack(srcSection, srcIndex);
+	    if (source == null || srcSection == destSection && srcIndex == destIndex) {
+            return true;
+        }
+
+        ItemStack destination = getItemStack(srcSection, srcIndex);
+        int sourceSize = getStackSize(source);
+        int movedAmount = Math.min(amount, sourceSize);
+	    
+	    if (source != null && (destination == null
+	            || source.isItemEqual(destination))) {
+
+	        leftClick(srcSection, srcIndex);
+	        for (int i = 0; i < movedAmount; i++) {
+	            rightClick(destSection, destIndex);
+	        }
+	        if (movedAmount < sourceSize) {
+	            leftClick(srcSection, srcIndex);
+	        }
+	        return true;
+	    }
+	    else {
+	        return false;
+	    }
+	    
 	}
 
-	public boolean move(ContainerManager.ContainerSection srcSection, int srcIndex, ContainerManager.ContainerSection destSection, int destIndex) throws TimeoutException {
-		ItemStack srcStack = this.getItemStack(srcSection, srcIndex);
-		ItemStack destStack = this.getItemStack(destSection, destIndex);
-		if(srcStack == null) {
-			return false;
-		} else if(srcSection == destSection && srcIndex == destIndex) {
-			return true;
-		} else {
-			if(this.getHoldStack() != null) {
-				int destinationEmpty = this.getFirstEmptyIndex(ContainerManager.ContainerSection.INVENTORY);
-				if(destinationEmpty == -1) {
-					return false;
-				}
+    public boolean drop(ContainerSection srcSection, int srcIndex) throws TimeoutException {
+        return move(srcSection, srcIndex, null, DROP_SLOT);
+    }
+    
+    public boolean dropSome(ContainerSection srcSection, int srcIndex, int amount) throws TimeoutException {
+        return moveSome(srcSection, srcIndex, null, DROP_SLOT, amount);
+    }
+            
+	public void leftClick(ContainerSection section, int index) throws TimeoutException {
+        click(section, index, false);
+    }
 
-				this.leftClick(ContainerManager.ContainerSection.INVENTORY, destinationEmpty);
-			}
+    public void rightClick(ContainerSection section, int index) throws TimeoutException {
+        click(section, index, true);
+    }
 
-			boolean destinationEmpty1 = this.getItemStack(destSection, destIndex) == null;
-			if(destStack != null && this.getItemID(srcStack) == this.getItemID(destStack) && srcStack.getMaxCount() == 1) {
-				int intermediateSlot = this.getFirstEmptyUsableSlotNumber();
-				ContainerManager.ContainerSection intermediateSection = this.getSlotSection(intermediateSlot);
-				int intermediateIndex = this.getSlotIndex(intermediateSlot);
-				if(intermediateIndex == -1) {
-					return false;
-				}
+    public void click(ContainerSection section, int index, boolean rightClick) throws TimeoutException {
+        
+        int slot = indexToSlot(section, index);
+       // int timeSpentWaiting = 0;
+        
+        if (slot != -1) {
+            
+            /* boolean uselessClick = false;
+            ItemStack stackInSlot = null;
+            if (isMultiplayerWorld()) {
+                // After clicking, we'll need to wait for server answer before continuing.
+                // We'll do this by listening to any change in the slot, but this implies we
+                // check first if the click will indeed produce a change.
+                stackInSlot = (getItemStack(section, index) != null)
+                        ? copy(getItemStack(section, index)) : null;
+                ItemStack stackInHand = getHoldStack();
+            
+                // Useless if empty stacks
+                if (stackInHand == null && stackInSlot == null)
+                    uselessClick = true;
+                // Useless if destination stack is full
+                else if (stackInHand != null && stackInSlot != null
+                        && stackInHand.isItemEqual(stackInSlot)
+                        && getStackSize(stackInSlot) == getMaxStackSize(stackInSlot)) {
+                    uselessClick = true;
+                }
+            }*/
+        
+            // Click!
+            clickInventory(getPlayerController(),
+                    getWindowId(container), // Select container
+                    slot, // Targeted slot
+                    (rightClick) ? 1 : 0, // Click #
+                    false, // Shift not held
+                    getThePlayer());
+        
+            // Wait for inventory update
+            /*if (isMultiplayerWorld()) {
+                if (!uselessClick) {
+                    int pollingTime = 0;
+                    // Note: Polling doesn't work for crafting output, if the same recipe
+                    // can still be used.
+                    while (areItemStacksEqual(getItemStack(section, index), stackInSlot)
+                            && pollingTime < ACTION_TIMEOUT
+                            && section != ContainerSection.CRAFTING_OUT) { 
+                        try {
+                            Thread.sleep(POLLING_DELAY);
+                        } catch (InterruptedException e) {
+                            // Do nothing
+                        }
+                        pollingTime += POLLING_DELAY;
+                    }
+                    if (pollingTime >= ACTION_TIMEOUT) {
+                        log.warning("Click timeout");
+                    }
+                    timeSpentWaiting += pollingTime;
+                }
+            }*/
+        }
+    }
 
-				this.leftClick(destSection, destIndex);
-				this.leftClick(intermediateSection, intermediateIndex);
-				this.leftClick(srcSection, srcIndex);
-				this.leftClick(destSection, destIndex);
-				this.leftClick(intermediateSection, intermediateIndex);
-				this.leftClick(srcSection, srcIndex);
-			} else {
-				this.leftClick(srcSection, srcIndex);
-				this.leftClick(destSection, destIndex);
-				if(!destinationEmpty1) {
-					this.leftClick(srcSection, srcIndex);
-				}
-			}
+    public boolean hasSection(ContainerSection section) {
+        return slotRefs.containsKey(section);
+    }
 
-			return true;
-		}
-	}
+    public List<Slot> getSlots(ContainerSection section) {
+        return slotRefs.get(section); 
+    }
 
-	public boolean moveSome(ContainerManager.ContainerSection srcSection, int srcIndex, ContainerManager.ContainerSection destSection, int destIndex, int amount) throws TimeoutException {
-		ItemStack source = this.getItemStack(srcSection, srcIndex);
-		if(source == null || srcSection == destSection && srcIndex == destIndex) {
-			return true;
-		} else {
-			ItemStack destination = this.getItemStack(srcSection, srcIndex);
-			int sourceSize = this.getStackSize(source);
-			int movedAmount = Math.min(amount, sourceSize);
-			if(source == null || destination != null && !source.isItemEqual(destination)) {
-				return false;
-			} else {
-				this.leftClick(srcSection, srcIndex);
+    /**
+     * @return The size of the whole container
+     */
+    public int getSize() {
+        int result = 0;
+        for (List<Slot> slots : slotRefs.values()) {
+            result += slots.size();
+        }
+        return result;
+    }
+    
+    /**
+     * Returns the size of a section of the container.
+     * @param section
+     * @return The size, or 0 if there is no such section.
+     */
+    public int getSize(ContainerSection section) {
+        if (hasSection(section)) {
+            return slotRefs.get(section).size();  
+        }
+        else {
+            return 0;
+        }
+    }
 
-				for(int i = 0; i < movedAmount; ++i) {
-					this.rightClick(destSection, destIndex);
-				}
+    /**
+     * 
+     * @param section
+     * @return -1 if no slot is free
+     */
+    public int getFirstEmptyIndex(ContainerSection section) {
+        int i = 0;
+        for (Slot slot : slotRefs.get(section)) { 
+            if (!slot.hasStack()) {
+                return i;
+            }
+            i++;
+        }
+        return -1;
+    }
 
-				if(movedAmount < sourceSize) {
-					this.leftClick(srcSection, srcIndex);
-				}
+    /**
+     * @param slot
+     * @return true if the specified slot exists and is empty, false otherwise.
+     */
+    public boolean isSlotEmpty(ContainerSection section, int slot) {
+        if (hasSection(section)) {
+            return getItemStack(section, slot) == null;
+        }
+        else {
+            return false;
+        }
+    }
 
-				return true;
-			}
-		}
-	}
+    public Slot getSlot(ContainerSection section, int index) {
+        List<Slot> slots = slotRefs.get(section);
+        if (slots != null) {
+            return slots.get(index);
+        } else {
+            return null;
+        }
+    }
+    
+    public int getSlotIndex(int slotNumber) {
+        // TODO Caching with getSlotSection
+        for (ContainerSection section : slotRefs.keySet()) {
+            if (section != ContainerSection.INVENTORY) {
+                int i = 0;
+                for (Slot slot : slotRefs.get(section)) {
+                    if (slot.id == slotNumber) {
+                        return i;
+                    }
+                    i++;
+                }
+            }
+        }
+        return -1;
+    }
+    
+    /**
+     * Note: Prefers INVENTORY_HOTBAR/NOT_HOTBAR instead of INVENTORY.
+     * @param slotNumber
+     * @return null if the slot number is invalid.
+     */
+    public ContainerSection getSlotSection(int slotNumber) {
+        // TODO Caching with getSlotIndex
+        for (ContainerSection section : slotRefs.keySet()) {
+            if (section != ContainerSection.INVENTORY) {
+                for (Slot slot : slotRefs.get(section)) {
+                    if (slot.id == slotNumber) {
+                        return section;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Returns an ItemStack from the wanted section and slot.
+     * @param section
+     * @param index
+     * @return An ItemStack or null.
+     */
+    public ItemStack getItemStack(ContainerSection section, int index)
+            throws NullPointerException, IndexOutOfBoundsException {
+        int slot = indexToSlot(section, index);
+        if (slot >= 0 && slot < getSlots(container).size()) {
+            return getSlotStack(container, slot);
+        } else {
+            return null;
+        }
+    }
 
-	public boolean drop(ContainerManager.ContainerSection srcSection, int srcIndex) throws TimeoutException {
-		return this.move(srcSection, srcIndex, (ContainerManager.ContainerSection)null, -999);
-	}
+    public ScreenHandler getContainer() {
+        return container;
+    }
 
-	public boolean dropSome(ContainerManager.ContainerSection srcSection, int srcIndex, int amount) throws TimeoutException {
-		return this.moveSome(srcSection, srcIndex, (ContainerManager.ContainerSection)null, -999, amount);
-	}
-
-	public void leftClick(ContainerManager.ContainerSection section, int index) throws TimeoutException {
-		this.click(section, index, false);
-	}
-
-	public void rightClick(ContainerManager.ContainerSection section, int index) throws TimeoutException {
-		this.click(section, index, true);
-	}
-
-	public void click(ContainerManager.ContainerSection section, int index, boolean rightClick) throws TimeoutException {
-		int slot = this.indexToSlot(section, index);
-		if(slot != -1) {
-			this.clickInventory(this.getPlayerController(), this.getWindowId(this.container), slot, rightClick ? 1 : 0, false, this.getThePlayer());
-		}
-
-	}
-
-	public boolean hasSection(ContainerManager.ContainerSection section) {
-		return this.slotRefs.containsKey(section);
-	}
-
-	public List<Slot> getSlots(ContainerManager.ContainerSection section) {
-		return this.slotRefs.get(section);
-	}
-
-	public int getSize() {
-		int result = 0;
-		for(List<Slot> slots : this.slotRefs.values()) {
-			result += slots.size();
-		}
-
-		return result;
-	}
-
-	public int getSize(ContainerManager.ContainerSection section) {
-		return this.hasSection(section) ? this.slotRefs.get(section).size() : 0;
-	}
-
-	public int getFirstEmptyIndex(ContainerManager.ContainerSection section) {
-		int i = 0;
-
-		for(Slot slot : this.slotRefs.get(section)) {
-			if(!slot.hasStack()) {
-				return i;
-			}
-		}
-
-		return -1;
-	}
-
-	public boolean isSlotEmpty(ContainerManager.ContainerSection section, int slot) {
-		return this.hasSection(section) && this.getItemStack(section, slot) == null;
-	}
-
-	public Slot getSlot(ContainerManager.ContainerSection section, int index) {
-		List<Slot> slots = this.slotRefs.get(section);
-		return slots != null ? slots.get(index) : null;
-	}
-
-	public int getSlotIndex(int slotNumber) {
-		for(ContainerManager.ContainerSection section : this.slotRefs.keySet()) {
-			if(section != ContainerManager.ContainerSection.INVENTORY) {
-				int i = 0;
-				for(Slot slot : this.slotRefs.get(section)) {
-					if(slot.id == slotNumber)
-						return i;
-					else
-						++i;
-				}
-				break;
-			}
-		}
-		return -1;
-	}
-
-	public ContainerManager.ContainerSection getSlotSection(int slotNumber) {
-		for(ContainerManager.ContainerSection section : this.slotRefs.keySet()) {
-			if (section != ContainerManager.ContainerSection.INVENTORY) {
-				for (Slot slot : this.slotRefs.get(section)) {
-					if (slot.id == slotNumber) {
-						return section;
-					}
-				}
-			}
-		}
-		return null;
-	}
-
-	public ItemStack getItemStack(ContainerManager.ContainerSection section, int index) throws NullPointerException, IndexOutOfBoundsException {
-		int slot = this.indexToSlot(section, index);
-		return slot >= 0 && slot < this.getSlots(this.container).size() ? this.getSlotStack(this.container, slot) : null;
-	}
-
-	public ScreenHandler getContainer() {
-		return this.container;
-	}
-
-	private int getFirstEmptyUsableSlotNumber() {
-
-        for (ContainerSection section : this.slotRefs.keySet()) {
-            for (Slot slot : this.slotRefs.get(section)) {
-                if (!slot.hasStack()) {
+    private int getFirstEmptyUsableSlotNumber() {
+        for (ContainerSection section : slotRefs.keySet()) {
+            for (Slot slot : slotRefs.get(section)) {
+                // Use only standard slot (to make sure
+                // we can freely put and remove items there)
+                if (slot.getClass().equals(Slot.class)
+                        && !slot.hasStack()) {
                     return slot.id;
                 }
             }
         }
-
-		return -1;
-	}
-
-	private int indexToSlot(ContainerManager.ContainerSection section, int index) {
-		if(index == -999) {
-			return -999;
-		} else if(this.hasSection(section)) {
-			Slot slot = this.slotRefs.get(section).get(index);
-			return slot != null ? slot.id : -1;
-		} else {
-			return -1;
-		}
-	}
-
-	public static enum ContainerSection {
-		INVENTORY,
-		INVENTORY_HOTBAR,
-		INVENTORY_NOT_HOTBAR,
-		CHEST,
-		CRAFTING_IN,
-		CRAFTING_OUT,
-		ARMOR,
-		FURNACE_IN,
-		FURNACE_OUT,
-		FURNACE_FUEL,
-		UNKNOWN;
-	}
+        return -1;
+    }
+    
+    /**
+     * Converts section/index values to slot ID.
+     * @param section
+     * @param index
+     * @return -1 if not found
+     */
+    private int indexToSlot(ContainerSection section, int index) {
+        if (index == DROP_SLOT) {
+            return DROP_SLOT;
+        }
+        if (hasSection(section)) {
+            Slot slot = slotRefs.get(section).get(index);
+            if (slot != null) {
+                return slot.id;
+            }
+            else {
+                return -1;
+            }
+        }
+        else {
+            return -1;
+        }
+    }
+    
 }

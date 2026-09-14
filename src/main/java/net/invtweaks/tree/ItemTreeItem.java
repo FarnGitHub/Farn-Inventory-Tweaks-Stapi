@@ -3,53 +3,70 @@ package net.invtweaks.tree;
 import net.invtweaks.library.Obfuscation;
 import net.minecraft.item.ItemStack;
 
+/**
+ * Representation of an item in the item tree.
+ * @author Jimeo Wan
+ *
+ */
 public class ItemTreeItem extends Obfuscation implements Comparable<ItemTreeItem> {
-	private final String name;
-	private final int id;
-	private final int damage;
-	private final int order;
 
-	public ItemTreeItem(String name, int id, int damage, int order) {
-		this.name = name;
-		this.id = id;
-		this.damage = damage;
-		this.order = order;
-	}
+    private String name;
+    private int id;
+    private int damage;
+    private int order;
 
-	public String getName() {
-		return this.name;
-	}
+    /**
+     * @param name The item name
+     * @param id The item ID
+     * @param damage The item variant or -1
+     * @param order The item order while sorting
+     */
+    public ItemTreeItem(String name, int id, int damage, int order) {
+        this.name = name;
+        this.id = id;
+        this.damage = damage;
+        this.order = order;
+    }
 
-	public int getId() {
-		return this.id;
-	}
+    public String getName() {
+        return name;
+    }
 
-	public int getDamage() {
-		return this.damage;
-	}
+    public int getId() {
+        return id;
+    }
 
-	public int getOrder() {
-		return this.order;
-	}
+    public int getDamage() {
+        return damage;
+    }
 
-	@SuppressWarnings("unused")
-	public boolean matchesStack(ItemStack stack) {
-		return this.getItemID(stack) == this.id && (this.getMaxStackSize(stack) == 1 || this.getItemDamage(stack) == this.damage);
-	}
+    public int getOrder() {
+        return order;
+    }
 
-	public boolean equals(Object o) {
-		if(o instanceof ItemTreeItem item) {
-			return this.id == item.getId() && (this.damage == -1 || this.damage == item.getDamage());
-		} else {
-			return false;
-		}
-	}
+    public boolean matchesStack(ItemStack stack) {
+        return getItemID(stack) == id && 
+                (getMaxStackSize(stack) == 1 || getItemDamage(stack) == damage);
+    }
 
-	public String toString() {
-		return this.name;
-	}
+    /**
+     * Warning: the item equality is not reflective. They are equal if "o"
+     * matches the item constraints (the opposite can be false).
+     */
+    public boolean equals(Object o) {
+        if (o == null || !(o instanceof ItemTreeItem))
+            return false;
+        ItemTreeItem item = (ItemTreeItem) o;
+        return id == item.getId() && (damage == -1 || damage == item.getDamage());
+    }
 
-	public int compareTo(ItemTreeItem item) {
-		return item.order - this.order;
-	}
+    public String toString() {
+        return name;
+    }
+
+    @Override
+    public int compareTo(ItemTreeItem item) {
+        return item.order - order;
+    }
+
 }

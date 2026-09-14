@@ -5,218 +5,260 @@ import java.util.logging.Logger;
 
 import net.invtweaks.tree.ItemTree;
 
-public class SortingRule implements Comparable {
-	private String constraint;
-	private int[] preferredPositions;
-	private String keyword;
-	private RuleType type;
-	private int priority;
-	private int containerSize;
-	private int containerRowSize;
+/**
+ * Stores a sorting rule, as a target plus a keyword.
+ * The target is provided as an array of preferred slots
+ * (ex: target "1", i.e. first column, is stored as [0, 9, 18, 27])
+ * 
+ * @author Jimeo Wan
+ *
+ */
+public class SortingRule implements Comparable<SortingRule> {
 
-	public SortingRule(ItemTree tree, String constraint, String keyword, int containerSize, int containerRowSize) {
-		this.keyword = keyword;
-		this.constraint = constraint;
-		this.type = getRuleType(constraint);
-		this.containerSize = containerSize;
-		this.containerRowSize = containerRowSize;
-		this.preferredPositions = this.getRulePreferredPositions(constraint);
-		this.priority = this.type.getLowestPriority() + 100000 + tree.getKeywordDepth(keyword) * 1000 - tree.getKeywordOrder(keyword);
-	}
+    public enum RuleType {
 
-	public RuleType getType() {
-		return this.type;
-	}
+        RECTANGLE(1), ROW(2), COLUMN(3), TILE(4);
 
-	public int[] getPreferredSlots() {
-		return this.preferredPositions;
-	}
+        private int lowestPriority;
+        private int highestPriority;
 
-	public String getKeyword() {
-		return this.keyword;
-	}
+        RuleType(int priorityLevel) {
+            lowestPriority = priorityLevel * 1000000;
+            highestPriority = (priorityLevel + 1) * 1000000 - 1;
+        }
 
-	public String getRawConstraint() {
-		return this.constraint;
-	}
+        // Used for computing rule priorities
+        public int getLowestPriority() {
+            return lowestPriority;
+        }
 
-	public int getPriority() {
-		return this.priority;
-	}
+        // Used for computing lock levels
+        public int getHighestPriority() {
+            return highestPriority;
+        }
+    }
 
-	public int compareTo(SortingRule o) {
-		return this.getPriority() - o.getPriority();
-	}
+    @SuppressWarnings("unused")
+    private static final Logger log = Logger.getLogger("InvTweaks");
 
-	public int[] getRulePreferredPositions(String constraint) {
-		return getRulePreferredPositions(constraint, this.containerSize, this.containerRowSize);
-	}
+    private String constraint;
+    private int[] preferredPositions;
+    private String keyword;
+    private RuleType type;
+    private int priority;
+    private int containerSize;
+    private int containerRowSize;
 
-	public static int[] getRulePreferredPositions(String constraint, int containerSize, int containerRowSize) {
-		int[] result = null;
-		int containerColumnSize = containerSize / containerRowSize;
-		if(constraint.length() >= 5) {
-			boolean column = false;
-			if(constraint.contains("v")) {
-				column = true;
-				constraint = constraint.replace("v", "");
-			}
+    public SortingRule(ItemTree tree, String constraint,
+            String keyword, int containerSize, int containerRowSize) {
 
-			String[] row = constraint.split("-");
-			if(row.length == 2) {
-				int[] reverse = getRulePreferredPositions(row[0], containerSize, containerRowSize);
-				int[] i = getRulePreferredPositions(row[1], containerSize, containerRowSize);
-				if(reverse.length == 1 && i.length == 1) {
-					int c = reverse[0];
-					int slot2 = i[0];
-					Point point1 = new Point(c % containerRowSize, c / containerRowSize);
-					Point point2 = new Point(slot2 % containerRowSize, slot2 / containerRowSize);
-					result = new int[(Math.abs(point2.y - point1.y) + 1) * (Math.abs(point2.x - point1.x) + 1)];
-					int resultIndex = 0;
-					int x;
-					if(column) {
-						Point[] y = new Point[]{point1, point2};
-						x = y.length;
+        this.keyword = keyword;
+        this.constraint = constraint;
+        this.type = getRuleType(constraint);
+        this.containerSize = containerSize;
+        this.containerRowSize = containerRowSize;
+        this.preferredPositions = getRulePreferredPositions(constraint);
 
-						for(int i$ = 0; i$ < x; ++i$) {
-							Point p = y[i$];
-							int buffer = p.x;
-							p.x = p.y;
-							p.y = buffer;
-						}
-					}
+        // Compute priority
+        // 1st criteria : the rule type
+        // 2st criteria : the keyword category depth
+        // 3st criteria : the item order in a same category
 
-					int i24 = point1.y;
+        priority = type.getLowestPriority() + 100000 + 
+                tree.getKeywordDepth(keyword) * 1000 - tree.getKeywordOrder(keyword);
 
-					while(true) {
-						if(point1.y < point2.y) {
-							if(i24 > point2.y) {
-								break;
-							}
-						} else if(i24 < point2.y) {
-							break;
-						}
+    }
 
-						x = point1.x;
+    public RuleType getType() {
+        return type;
+    }
 
-						while(true) {
-							if(point1.x < point2.x) {
-								if(x > point2.x) {
-									break;
-								}
-							} else if(x < point2.x) {
-								break;
-							}
+    /**
+     * An array of preferred positions (from the most to the less preferred).
+     * 
+     * @return
+     */
+    public int[] getPreferredSlots() {
+        return preferredPositions;
+    }
 
-							result[resultIndex++] = column ? index(containerRowSize, x, i24) : index(containerRowSize, i24, x);
-							x += point1.x < point2.x ? 1 : -1;
-						}
+    public String getKeyword() {
+        return keyword;
+    }
 
-						i24 += point1.y < point2.y ? 1 : -1;
-					}
+    /**
+     * Raw constraint name, for debug purposes
+     */
+    public String getRawConstraint() {
+        return constraint;
+    }
 
-					if(constraint.contains("r")) {
-						reverseArray(result);
-					}
-				}
-			}
-		} else {
-			int i19 = -1;
-			int i20 = -1;
-			boolean z21 = false;
+    /**
+     * Returns rule priority (for rule sorting)
+     * 
+     * @return
+     */
+    public int getPriority() {
+        return priority;
+    }
 
-			int i22;
-			for(i22 = 0; i22 < constraint.length(); ++i22) {
-				char c23 = constraint.charAt(i22);
-				if(c23 <= 57) {
-					i19 = c23 - 49;
-				} else if(c23 == 114) {
-					z21 = true;
-				} else {
-					i20 = c23 - 97;
-				}
-			}
+    /**
+     * Compares rules priority : positive value means 'this' is of greater
+     * priority than o
+     */
+    public int compareTo(SortingRule o) {
+        return getPriority() - o.getPriority();
+    }
 
-			if(i19 != -1 && i20 != -1) {
-				result = new int[]{index(containerRowSize, i20, i19)};
-			} else if(i20 != -1) {
-				result = new int[containerRowSize];
+    public int[] getRulePreferredPositions(String constraint) {
+        // TODO Caching
+        return SortingRule.getRulePreferredPositions(
+                constraint, containerSize, containerRowSize);
+    }
 
-				for(i22 = 0; i22 < containerRowSize; ++i22) {
-					result[i22] = index(containerRowSize, i20, z21 ? containerRowSize - 1 - i22 : i22);
-				}
-			} else {
-				result = new int[containerColumnSize];
+    public static int[] getRulePreferredPositions(String constraint,
+            int containerSize, int containerRowSize) {
 
-				for(i22 = 0; i22 < containerColumnSize; ++i22) {
-					result[i22] = index(containerRowSize, z21 ? i22 : containerColumnSize - 1 - i22, i19);
-				}
-			}
-		}
+        int[] result = null;
+        int containerColumnSize = containerSize / containerRowSize;
 
-		return result;
-	}
+        // Rectangle rules
+        if (constraint.length() >= 5) {
 
-	public static RuleType getRuleType(String constraint) {
-		RuleType result = RuleType.TILE;
-		if(constraint.length() == 1 || constraint.length() == 2 && constraint.contains("r")) {
-			constraint = constraint.replace("r", "");
-			if(constraint.getBytes()[0] <= 57) {
-				result = RuleType.COLUMN;
-			} else {
-				result = RuleType.ROW;
-			}
-		} else if(constraint.length() > 4) {
-			result = RuleType.RECTANGLE;
-		}
+            boolean vertical = false;
+            if (constraint.contains("v")) {
+                vertical = true;
+                constraint = constraint.replaceAll("v", "");
+            }
+            String[] elements = constraint.split("-");
+            if (elements.length == 2) {
 
-		return result;
-	}
+                int[] slots1 = getRulePreferredPositions(elements[0],
+                        containerSize, containerRowSize);
+                int[] slots2 = getRulePreferredPositions(elements[1],
+                        containerSize, containerRowSize);
+                if (slots1.length == 1 && slots2.length == 1) {
 
-	public String toString() {
-		return this.constraint + " " + this.keyword;
-	}
+                    int slot1 = slots1[0], slot2 = slots2[0];
 
-	private static int index(int rowSize, int row, int column) {
-		return row * rowSize + column;
-	}
+                    Point point1 = new Point(slot1 % containerRowSize, slot1 / containerRowSize),
+                          point2 = new Point(slot2 % containerRowSize, slot2 / containerRowSize);
 
-	private static void reverseArray(int[] data) {
-		int left = 0;
+                    result = new int[(Math.abs(point2.y - point1.y) + 1) * 
+                                     (Math.abs(point2.x - point1.x) + 1)];
+                    int resultIndex = 0;
 
-		for(int right = data.length - 1; left < right; --right) {
-			int temp = data[left];
-			data[left] = data[right];
-			data[right] = temp;
-			++left;
-		}
+                    // Swap coordinates for vertical ordering
+                    if (vertical) {
+                        for (Point p : new Point[] { point1, point2 }) {
+                            int buffer = p.x;
+                            p.x = p.y;
+                            p.y = buffer;
+                        }
+                    }
 
-	}
+                    int y = point1.y;
+                    while ((point1.y < point2.y) ? y <= point2.y : y >= point2.y) {
+                        int x = point1.x;
+                        while ((point1.x < point2.x) ? x <= point2.x : x >= point2.x) {
+                            result[resultIndex++] = (vertical)
+                                    ? index(containerRowSize, x, y) : index(containerRowSize, y, x);
+                            x += (point1.x < point2.x) ? 1 : -1;
+                        }
+                        y += (point1.y < point2.y) ? 1 : -1;
+                    }
+                    
+                    if (constraint.contains("r")) {
+                        reverseArray(result);
+                    }
 
-	public int compareTo(Object x0) {
-		return this.compareTo((SortingRule)x0);
-	}
+                }
+            }
+        }
 
-	public static enum RuleType {
-		RECTANGLE(1),
-		ROW(2),
-		COLUMN(3),
-		TILE(4);
+        else {
 
-		private int lowestPriority;
-		private int highestPriority;
+            // Default values
+            int column = -1, row = -1;
+            boolean reverse = false;
 
-		private RuleType(int priorityLevel) {
-			this.lowestPriority = priorityLevel * 1000000;
-			this.highestPriority = (priorityLevel + 1) * 1000000 - 1;
-		}
+            // Extract chars
+            for (int i = 0; i < constraint.length(); i++) {
+                char c = constraint.charAt(i);
+                if (c <= '9') {
+                    // 1 column = 0, 9 column = 8
+                    column = c - '1';
+                } else if (c == 'r') {
+                    reverse = true;
+                } else {
+                    // A row = 0, D row = 3, H row = 7
+                    row = c - 'a';
+                }
+            }
 
-		public int getLowestPriority() {
-			return this.lowestPriority;
-		}
+            // Tile case
+            if (column != -1 && row != -1) {
+                result = new int[] { index(containerRowSize, row, column) };
+            }
+            // Row case
+            else if (row != -1) {
+                result = new int[containerRowSize];
+                for (int i = 0; i < containerRowSize; i++) {
+                    result[i] = index(containerRowSize, row,
+                            reverse ? containerRowSize - 1 - i : i);
+                }
+            }
+            // Column case
+            else {
+                result = new int[containerColumnSize];
+                for (int i = 0; i < containerColumnSize; i++) {
+                    result[i] = index(containerRowSize,
+                            reverse ? i : containerColumnSize - 1 - i, column);
+                }
+            }
+        }
 
-		public int getHighestPriority() {
-			return this.highestPriority;
-		}
-	}
+        return result;
+    }
+
+    public static RuleType getRuleType(String constraint) {
+
+        RuleType result = RuleType.TILE;
+
+        if (constraint.length() == 1 || (constraint.length() == 2 && constraint.contains("r"))) {
+            constraint = constraint.replace("r", "");
+            if (constraint.getBytes()[0] <= '9')
+                result = RuleType.COLUMN;
+            else {
+                result = RuleType.ROW;
+            }
+        } else if (constraint.length() > 4) {
+            result = RuleType.RECTANGLE;
+        }
+
+        return result;
+
+    }
+
+    public String toString() {
+        return constraint + " " + keyword;
+    }
+    
+    private static int index(int rowSize, int row, int column) {
+        return row * rowSize + column;
+    }
+
+    private static void reverseArray(int[] data) {
+        int left = 0;
+        int right = data.length - 1;
+        while( left < right ) {
+            int temp = data[left];
+            data[left] = data[right];
+            data[right] = temp;
+            left++;
+            right--;
+        }
+    }
+
+
 }

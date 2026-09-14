@@ -2,73 +2,96 @@ package net.invtweaks.tree;
 
 import java.io.File;
 import java.util.LinkedList;
+
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
+
 import net.invtweaks.InvTweaks;
 import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-@SuppressWarnings("unused")
+/**
+ * Loads the item tree by parsing the XML file.
+ * @author Jimeo Wan
+ *
+ */
 public class ItemTreeLoader extends DefaultHandler {
-	private static final String ATTR_RANGE_MIN = "min";
-	private static final String ATTR_RANGE_MAX = "max";
-	private static final String ATTR_ID = "id";
-	private static final String ATTR_DAMAGE = "damage";
-	private ItemTree tree = new ItemTree();
-	private int itemOrder = 0;
-	private LinkedList<String> categoryStack = new LinkedList<>();
 
-	public ItemTree load(String filePath) throws Exception {
-		this.tree.reset();
-		this.categoryStack.clear();
-		SAXParserFactory parserFactory = SAXParserFactory.newInstance();
-		SAXParser parser = parserFactory.newSAXParser();
-		parser.parse(new File(filePath), this);
-		if(!this.categoryStack.isEmpty()) {
-			InvTweaks.instance.logInGame("Warning: The tree file seems to be broken (is " + this.categoryStack.getLast() + " closed correctly?)");
-		}
+    private final static String ATTR_RANGE_MIN = "min";
+    private final static String ATTR_RANGE_MAX = "max";
+    private final static String ATTR_ID = "id";
+    private final static String ATTR_DAMAGE = "damage";
 
-		return this.tree;
-	}
+    private ItemTree tree;
 
-	public void startElement(String uri, String localName, String name, Attributes attributes) {
-		String rangeMinAttr = attributes.getValue("min");
-		int id;
-		int damage;
-		if(attributes.getLength() != 0 && rangeMinAttr == null) {
-			id = Integer.parseInt(attributes.getValue("id"));
-			damage = -1;
-			if(attributes.getValue("damage") != null) {
-				damage = Integer.parseInt(attributes.getValue("damage"));
-			}
+    private int itemOrder = 0;
+    private LinkedList<String> categoryStack = new LinkedList<String>();
 
-			this.tree.addItem(this.categoryStack.getLast(), new ItemTreeItem(name.toLowerCase(), id, damage, this.itemOrder++));
-		} else {
-			if(this.categoryStack.isEmpty()) {
-				this.tree.setRootCategory(new ItemTreeCategory(name));
-			} else {
-				this.tree.addCategory(this.categoryStack.getLast(), new ItemTreeCategory(name));
-			}
+    public ItemTreeLoader() {
+        tree = new ItemTree();
+    }
 
-			if(rangeMinAttr != null) {
-				id = Integer.parseInt(rangeMinAttr);
-				damage = Integer.parseInt(attributes.getValue("max"));
+    public ItemTree load(String filePath) throws Exception {
+        tree.reset();
+        categoryStack.clear();
+        SAXParserFactory parserFactory = SAXParserFactory.newInstance();
+        SAXParser parser = parserFactory.newSAXParser();
+        parser.parse(new File(filePath), this);
+        if (!categoryStack.isEmpty()) {
+            InvTweaks.logInGameStatic("Warning: The tree file seems to be broken "
+                    + "(is '" + categoryStack.getLast() + "' closed correctly?)");
+        }
+        return tree;
+    }
 
-				for(int i = id; i <= damage; ++i) {
-					this.tree.addItem(name, new ItemTreeItem((name + i).toLowerCase(), i, -1, this.itemOrder++));
-				}
-			}
+    @Override
+    public void startElement(String uri, String localName,
+            String name, Attributes attributes) throws SAXException {
 
-			this.categoryStack.add(name);
-		}
+        String rangeMinAttr = attributes.getValue(ATTR_RANGE_MIN);
 
-	}
+        // Category
+        if (attributes.getLength() == 0 || rangeMinAttr != null) {
 
-	public void endElement(String uri, String localName, String name) {
-		if(name.equals(this.categoryStack.getLast())) {
-			this.categoryStack.removeLast();
-		}
+            if (categoryStack.isEmpty()) {
+                // Root category
+                tree.setRootCategory(new ItemTreeCategory(name));
+            } else {
+                // Normal category
+                tree.addCategory(categoryStack.getLast(), new ItemTreeCategory(name));
+            }
 
-	}
+            // Handle item ranges
+            if (rangeMinAttr != null) {
+                int rangeMin = Integer.parseInt(rangeMinAttr);
+                int rangeMax = Integer.parseInt(attributes.getValue(ATTR_RANGE_MAX));
+                for (int i = rangeMin; i <= rangeMax; i++) {
+                    tree.addItem(name, new ItemTreeItem((name + i).toLowerCase(),
+                            i, -1, itemOrder++));
+                }
+            }
+            categoryStack.add(name);
+        }
+
+        // Item
+        else {
+            int id = Integer.parseInt(attributes.getValue(ATTR_ID));
+            int damage = -1;
+            if (attributes.getValue(ATTR_DAMAGE) != null) {
+                damage = Integer.parseInt(attributes.getValue(ATTR_DAMAGE));
+            }
+            tree.addItem(categoryStack.getLast(), new ItemTreeItem(name.toLowerCase(),
+                    id, damage, itemOrder++));
+        }
+    }
+
+    @Override
+    public void endElement(String uri, String localName, String name) throws SAXException {
+        if (name.equals(categoryStack.getLast())) {
+            categoryStack.removeLast();
+        }
+    }
+
 }

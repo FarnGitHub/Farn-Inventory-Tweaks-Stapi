@@ -9,8 +9,6 @@ import org.lwjgl.input.Keyboard;
 
 public class InvTweaksStapi {
 
-    public static Logger LOGGER = LogManager.getLogger("InvTweaks");
-
     public static void pressKey() {
         if(Keyboard.getEventKeyState() && Keyboard.getEventKey() == Const.SORT_KEY_BINDING.code) {
             InvTweaks.instance.onSortingKeyPressed();
@@ -18,8 +16,6 @@ public class InvTweaksStapi {
     }
 
     public static void tickGame() {
-        InvTweaks.checkConfigLoad();
-
         if(Minecraft.INSTANCE.currentScreen != null)
             InvTweaks.instance.onTickInGUI(Minecraft.INSTANCE.currentScreen);
 

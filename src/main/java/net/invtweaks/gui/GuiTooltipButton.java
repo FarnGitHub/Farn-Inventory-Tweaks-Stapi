@@ -1,114 +1,129 @@
 package net.invtweaks.gui;
 
+import net.invtweaks.Const;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.widget.ButtonWidget;
 
+/**
+ * Icon-size button, which get drawns in a specific way to fit its small size.
+ * @author Jimeo Wan
+ *
+ */
 public class GuiTooltipButton extends ButtonWidget {
-	public static final int DEFAULT_BUTTON_WIDTH = 200;
-	public static final int LINE_HEIGHT = 11;
-	private int hoverTime;
-	private long prevSystemTime;
-	private String tooltip;
-	private String[] tooltipLines;
-	private int tooltipWidth;
+    
+    public final static int DEFAULT_BUTTON_WIDTH = 200;
+    public final static int LINE_HEIGHT = 11;
+    
+    private int hoverTime = 0;
+    private long prevSystemTime = 0;
+    
+    private String tooltip = null;
+    private String[] tooltipLines = null;
+    private int tooltipWidth = -1;
 
-	public GuiTooltipButton(int id, int x, int y, String displayString) {
-		this(id, x, y, 150, 20, displayString, (String)null);
-	}
+    public GuiTooltipButton(int id,
+            int x, int y, String displayString) {
+        this(id, x, y, 150, 20, displayString, null);
+    }
+    
+    /**
+     * Default size is 150, the common "GuiSmallButton" button size.
+     */
+    public GuiTooltipButton(int id,
+            int x, int y, String displayString, String tooltip) {
+        this(id, x, y, 150, 20, displayString, tooltip);
+    }
 
-	public GuiTooltipButton(int id, int x, int y, String displayString, String tooltip) {
-		this(id, x, y, 150, 20, displayString, tooltip);
-	}
+    public GuiTooltipButton(int id, int x, int y, int w, int h,
+            String displayString) {
+        this(id, x, y, w, h, displayString, null);
+    }
+    
+    public GuiTooltipButton(int id, int x, int y, int w, int h,
+            String displayString, String tooltip) {
+        super(id, x, y, w, h, displayString);
+        if (tooltip != null) {
+            setTooltip(tooltip);
+        }
+    }
 
-	public GuiTooltipButton(int id, int x, int y, int w, int h, String displayString) {
-		this(id, x, y, w, h, displayString, (String)null);
-	}
+    public void render(Minecraft minecraft, int i, int j) {
+        super.render(minecraft, i, j);
+        
+        if (!visible) {
+            return;
+        }
+        
+        if (tooltipLines != null) {
+            // Compute hover time
+            if (isMouseOverButton(i, j)) {
+                long systemTime = System.currentTimeMillis();
+                if (prevSystemTime != 0) {
+                    hoverTime += systemTime - prevSystemTime;
+                }
+                prevSystemTime = systemTime;
+            }
+            else {
+                hoverTime = 0;
+                prevSystemTime = 0;
+            }
+            
+            // Draw tooltip if hover time is long enough
+            if (hoverTime > Const.TOOLTIP_DELAY && tooltipLines != null) {
+                
+                TextRenderer fontRenderer = minecraft.textRenderer;
 
-	public GuiTooltipButton(int id, int x, int y, int w, int h, String displayString, String tooltip) {
-		super(id, x, y, w, h, displayString);
-		this.hoverTime = 0;
-		this.prevSystemTime = 0L;
-		this.tooltip = null;
-		this.tooltipLines = null;
-		this.tooltipWidth = -1;
-		if(tooltip != null) {
-			this.setTooltip(tooltip);
-		}
+                // Compute tooltip params
+                int x = i + 12, y = j - LINE_HEIGHT*tooltipLines.length;
+                if (tooltipWidth == -1) {
+                    for (String line : tooltipLines) {
+                        tooltipWidth = Math.max(fontRenderer.getWidth(line), tooltipWidth);
+                    }
+                }
+                if (x + tooltipWidth > minecraft.currentScreen.width) {
+                    x = minecraft.currentScreen.width - tooltipWidth;
+                }
+                
+                // Draw background
+                fillGradient(x - 3, y - 3,
+                        x + tooltipWidth + 3, y + LINE_HEIGHT*tooltipLines.length, 
+                        0xc0000000, 0xc0000000);
+                
+                // Draw lines
+                int lineCount = 0;
+                for (String line : tooltipLines) {
+                    minecraft.textRenderer.drawWithShadow(
+                            line, x, y + (lineCount++)*LINE_HEIGHT, -1);
+                }
+            }
+        }
 
-	}
+    }
+    
+    protected boolean isMouseOverButton(int i, int j) {
+        return i >= x && j >= y && i < x + width && j < y + height;
+    }
+    
+    protected int getTextColor(int i, int j) {
+        
+        int textColor = 0xffe0e0e0;
+        if (!active) {
+            textColor = 0xffa0a0a0;
+        } else if (isMouseOverButton(i, j)) {
+            textColor = 0xffffffa0;
+        }
+        return textColor;
 
-	public void render(Minecraft minecraft, int i, int j) {
-		super.render(minecraft, i, j);
-		if(this.active) {
-			if(this.tooltipLines != null) {
-				if(this.isMouseOverButton(i, j)) {
-					long fontRenderer = System.currentTimeMillis();
-					if(this.prevSystemTime != 0L) {
-						this.hoverTime = (int)((long)this.hoverTime + (fontRenderer - this.prevSystemTime));
-					}
-
-					this.prevSystemTime = fontRenderer;
-				} else {
-					this.hoverTime = 0;
-					this.prevSystemTime = 0L;
-				}
-
-				if(this.hoverTime > 1000 && this.tooltipLines != null) {
-					TextRenderer fontRenderer12 = minecraft.textRenderer;
-					int x = i + 12;
-					int y = j - 11 * this.tooltipLines.length;
-					int len$;
-					if(this.tooltipWidth == -1) {
-						String[] lineCount = this.tooltipLines;
-						int arr$ = lineCount.length;
-
-						for(len$ = 0; len$ < arr$; ++len$) {
-							String i$ = lineCount[len$];
-							this.tooltipWidth = Math.max(fontRenderer12.getWidth(i$), this.tooltipWidth);
-						}
-					}
-
-					if(x + this.tooltipWidth > minecraft.currentScreen.width) {
-						x = minecraft.currentScreen.width - this.tooltipWidth;
-					}
-
-					this.fillGradient(x - 3, y - 3, x + this.tooltipWidth + 3, y + 11 * this.tooltipLines.length, -1073741824, -1073741824);
-					int i13 = 0;
-					String[] string14 = this.tooltipLines;
-					len$ = string14.length;
-
-					for(int i15 = 0; i15 < len$; ++i15) {
-						String line = string14[i15];
-						minecraft.textRenderer.drawWithShadow(line, x, y + i13++ * 11, -1);
-					}
-				}
-			}
-
-		}
-	}
-
-	protected boolean isMouseOverButton(int i, int j) {
-		return i >= this.x && j >= this.y && i < this.x + this.width && j < this.y + this.height;
-	}
-
-	protected int getTextColor(int i, int j) {
-		int textColor = -2039584;
-		if(!this.active) {
-			textColor = -6250336;
-		} else if(this.isMouseOverButton(i, j)) {
-			textColor = -96;
-		}
-
-		return textColor;
-	}
-
-	public void setTooltip(String tooltip) {
-		this.tooltip = tooltip;
-		this.tooltipLines = tooltip.split("\n");
-	}
-
-	public String getTooltip() {
-		return this.tooltip;
-	}
+    }
+    
+    public void setTooltip(String tooltip) {
+        this.tooltip = tooltip;
+        this.tooltipLines = tooltip.split("\n");
+    }
+    
+    public String getTooltip() {
+        return tooltip;
+    }
+    
 }

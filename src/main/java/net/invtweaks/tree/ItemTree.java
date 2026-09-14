@@ -1,8 +1,5 @@
 package net.invtweaks.tree;
 
-import farn.invtweaksStapi.InvTweaksStapi;
-import org.apache.logging.log4j.Logger;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -10,186 +7,248 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
+import java.util.logging.Logger;
 
-@SuppressWarnings("unused")
+/**
+ * Contains the whole hierarchy of categories and items, as defined
+ * in the XML item tree. Is used to recognize keywords and store
+ * item orders.
+ * @author Jimeo Wan
+ *
+ */
 public class ItemTree {
-	public static final int MAX_CATEGORY_RANGE = 1000;
-	private static final Logger log = InvTweaksStapi.LOGGER;
-	private Map<String, ItemTreeCategory> categories = new HashMap<>();
-	private Map<Integer, Vector<ItemTreeItem>> itemsById = new HashMap<>(500);
-	private static Vector<ItemTreeItem> defaultItems = null;
-	private Map<String, List<ItemTreeItem>> itemsByName = new HashMap<>(500);
-	private String rootCategory;
 
-	public ItemTree() {
-		this.reset();
-	}
+    public static final int MAX_CATEGORY_RANGE = 1000;
 
-	public void reset() {
-		if(defaultItems == null) {
-			defaultItems = new Vector<>();
-			defaultItems.add(new ItemTreeItem("unknown", -1, -1, Integer.MAX_VALUE));
-		}
+    private static final Logger log = Logger.getLogger("InvTweaks");
 
-		this.categories.clear();
-		this.itemsByName.clear();
-		this.itemsById.clear();
-	}
+    /** All categories, stored by name */
+    private Map<String, ItemTreeCategory> categories = 
+        new HashMap<String, ItemTreeCategory>();
 
-	public boolean matches(List<ItemTreeItem> items, String keyword) {
-		if(items == null) {
-			return false;
-		} else {
+    /** Items stored by ID. A same ID can hold several names. */
+    private Map<Integer, Vector<ItemTreeItem>> itemsById = 
+        new HashMap<Integer, Vector<ItemTreeItem>>(500);
+    private static Vector<ItemTreeItem> defaultItems = null;
 
-            for (ItemTreeItem i$ : items) {
-                if (i$.getName().equals(keyword)) {
+    /** Items stored by name. A same name can match several IDs. */
+    private Map<String, Vector<ItemTreeItem>> itemsByName = 
+        new HashMap<String, Vector<ItemTreeItem>>(500);
+
+    private String rootCategory;
+
+    public ItemTree() {
+        reset();
+    }
+
+    public void reset() {
+
+        if (defaultItems == null) {
+            defaultItems = new Vector<ItemTreeItem>();
+            defaultItems.add(new ItemTreeItem("unknown", -1, -1, Integer.MAX_VALUE));
+        }
+
+        // Reset tree
+        categories.clear();
+        itemsByName.clear();
+        itemsById.clear();
+
+    }
+
+    /**
+     * Checks it given item ID matches a given keyword (either the item's name
+     * is the keyword, or it is in the keyword category)
+     * 
+     * @param items
+     * @param keyword
+     * @return
+     */
+    public boolean matches(List<ItemTreeItem> items, String keyword) {
+
+        if (items == null)
+            return false;
+
+        // The keyword is an item
+        for (ItemTreeItem item : items) {
+            if (item.getName().equals(keyword)) {
+                return true;
+            }
+        }
+
+        // The keyword is a category
+        ItemTreeCategory category = getCategory(keyword);
+        if (category != null) {
+            for (ItemTreeItem item : items) {
+                if (category.contains(item)) {
                     return true;
                 }
             }
+        }
+        
+        // Everything is stuff
+        if (keyword.equals(rootCategory)) {
+            return true;
+        }
 
-			ItemTreeCategory category1 = this.getCategory(keyword);
-			if(category1 != null) {
-                for (ItemTreeItem item : items) {
-                    if (category1.contains(item)) {
-                        return true;
-                    }
-                }
-			}
+        return false;
+    }
 
-			return keyword.equals(this.rootCategory);
-		}
-	}
+    public int getKeywordDepth(String keyword) {
+        try {
+            return getRootCategory().findKeywordDepth(keyword);
+        } catch (NullPointerException e) {
+            log.severe("The root category is missing: " + e.getMessage());
+            return 0;
+        }
+    }
 
-	public int getKeywordDepth(String keyword) {
-		try {
-			return this.getRootCategory().findKeywordDepth(keyword);
-		} catch (NullPointerException nullPointerException3) {
-			log.error("The root category is missing: " + nullPointerException3.getMessage());
-			return 0;
-		}
-	}
+    public int getKeywordOrder(String keyword) {
+        List<ItemTreeItem> items = getItems(keyword);
+        if (items != null && items.size() != 0) {
+            return items.get(0).getOrder();
+        } else {
+            try {
+                return getRootCategory().findCategoryOrder(keyword);
+            } catch (NullPointerException e) {
+                log.severe("The root category is missing: " + e.getMessage());
+                return -1;
+            }
+        }
+    }
 
-	public int getKeywordOrder(String keyword) {
-		List<ItemTreeItem> items = this.getItems(keyword);
-		if(items != null && !items.isEmpty()) {
-			return items.get(0).getOrder();
-		} else {
-			try {
-				return this.getRootCategory().findCategoryOrder(keyword);
-			} catch (NullPointerException nullPointerException4) {
-				log.error("The root category is missing: " + nullPointerException4.getMessage());
-				return -1;
-			}
-		}
-	}
+    /**
+     * Checks if the given keyword is valid (i.e. represents either a registered
+     * item or a registered category)
+     * 
+     * @param keyword
+     * @return
+     */
+    public boolean isKeywordValid(String keyword) {
 
-	public boolean isKeywordValid(String keyword) {
-		if(this.containsItem(keyword)) {
-			return true;
-		} else {
-			ItemTreeCategory category = this.getCategory(keyword);
-			return category != null;
-		}
-	}
+        // Is the keyword an item?
+        if (containsItem(keyword)) {
+            return true;
+        }
 
-	public Collection<ItemTreeCategory> getAllCategories() {
-		return this.categories.values();
-	}
+        // Or maybe a category ?
+        else {
+            ItemTreeCategory category = getCategory(keyword);
+            return category != null;
+        }
+    }
 
-	public ItemTreeCategory getRootCategory() {
-		return this.categories.get(this.rootCategory);
-	}
+    /**
+     * Returns a reference to all categories.
+     */
+    public Collection<ItemTreeCategory> getAllCategories() {
+        return categories.values();
+    }
 
-	public ItemTreeCategory getCategory(String keyword) {
-		return this.categories.get(keyword);
-	}
+    public ItemTreeCategory getRootCategory() {
+        return categories.get(rootCategory);
+    }
 
-	public List<ItemTreeItem> getItems(int id, int damage) {
-		List<ItemTreeItem> items = this.itemsById.get(id);
-		ArrayList<ItemTreeItem> filteredItems = null;
-		if(items == null) {
-			return defaultItems;
-		} else {
+    public ItemTreeCategory getCategory(String keyword) {
+        return categories.get(keyword);
+    }
 
+    public List<ItemTreeItem> getItems(int id, int damage) {
+        List<ItemTreeItem> items = itemsById.get(id);
+        List<ItemTreeItem> filteredItems = null;
+        if (items != null) {
+            // Filter items of same ID, but different damage value
             for (ItemTreeItem item : items) {
                 if (item.getDamage() != -1 && item.getDamage() != damage) {
                     if (filteredItems == null) {
-                        filteredItems = new ArrayList<>(items);
+                        filteredItems = new ArrayList<ItemTreeItem>(items);
                     }
-
                     filteredItems.remove(item);
                 }
             }
+            return (filteredItems != null && !filteredItems.isEmpty())
+                    ? filteredItems : items;
+        } else {
+            log.warning("Unknown item id: " + id);
+            return defaultItems;
+        }
+    }
 
-			return filteredItems != null && !filteredItems.isEmpty() ? filteredItems : items;
-		}
-	}
+    public List<ItemTreeItem> getItems(String name) {
+        return itemsByName.get(name);
+    }
 
-	public List<ItemTreeItem> getItems(String name) {
-		return this.itemsByName.get(name);
-	}
+    public ItemTreeItem getRandomItem(Random r) {
+        return (ItemTreeItem) itemsByName.values()
+                .toArray()[r.nextInt(itemsByName.size())];
+    }
 
-	public ItemTreeItem getRandomItem(Random r) {
-		return (ItemTreeItem)this.itemsByName.values().toArray()[r.nextInt(this.itemsByName.size())];
-	}
+    public boolean containsItem(String name) {
+        return itemsByName.containsKey(name);
+    }
 
-	public boolean containsItem(String name) {
-		return this.itemsByName.containsKey(name);
-	}
+    public boolean containsCategory(String name) {
+        return categories.containsKey(name);
+    }
 
-	public boolean containsCategory(String name) {
-		return this.categories.containsKey(name);
-	}
+    protected void setRootCategory(ItemTreeCategory category) {
+        rootCategory = category.getName();
+        categories.put(rootCategory, category);
+    }
 
-	protected void setRootCategory(ItemTreeCategory category) {
-		this.rootCategory = category.getName();
-		this.categories.put(this.rootCategory, category);
-	}
+    protected void addCategory(String parentCategory, 
+            ItemTreeCategory newCategory) throws NullPointerException {
+        // Build tree
+        categories.get(parentCategory.toLowerCase()).addCategory(newCategory);
 
-	protected void addCategory(String parentCategory, ItemTreeCategory newCategory) throws NullPointerException {
-		this.categories.get(parentCategory.toLowerCase()).addCategory(newCategory);
-		this.categories.put(newCategory.getName(), newCategory);
-	}
+        // Register category
+        categories.put(newCategory.getName(), newCategory);
+    }
 
-	protected void addItem(String parentCategory, ItemTreeItem newItem) throws NullPointerException {
-		this.categories.get(parentCategory.toLowerCase()).addItem(newItem);
-		Vector<ItemTreeItem> list;
-		if(this.itemsByName.containsKey(newItem.getName())) {
-			this.itemsByName.get(newItem.getName()).add(newItem);
-		} else {
-			list = new Vector<>();
-			list.add(newItem);
-			this.itemsByName.put(newItem.getName(), list);
-		}
+    protected void addItem(String parentCategory,
+            ItemTreeItem newItem) throws NullPointerException {
+        // Build tree
+        categories.get(parentCategory.toLowerCase()).addItem(newItem);
 
-		if(this.itemsById.containsKey(newItem.getId())) {
-			this.itemsById.get(newItem.getId()).add(newItem);
-		} else {
-			list = new Vector<>();
-			list.add(newItem);
-			this.itemsById.put(newItem.getId(), list);
-		}
+        // Register item
+        if (itemsByName.containsKey(newItem.getName())) {
+            itemsByName.get(newItem.getName()).add(newItem);
+        } else {
+            Vector<ItemTreeItem> list = new Vector<ItemTreeItem>();
+            list.add(newItem);
+            itemsByName.put(newItem.getName(), list);
+        }
+        if (itemsById.containsKey(newItem.getId())) {
+            itemsById.get(newItem.getId()).add(newItem);
+        } else {
+            Vector<ItemTreeItem> list = new Vector<ItemTreeItem>();
+            list.add(newItem);
+            itemsById.put(newItem.getId(), list);
+        }
+    }
 
-	}
+    /**
+     * For debug purposes. Call log(getRootCategory(), 0) to log the whole tree.
+     */
+    @SuppressWarnings("unused")
+    private void log(ItemTreeCategory category, int indentLevel) {
 
-	private void log(ItemTreeCategory category, int indentLevel) {
-		String logIdent = "";
+        String logIdent = "";
+        for (int i = 0; i < indentLevel; i++) {
+            logIdent += "  ";
+        }
+        log.info(logIdent + category.getName());
 
-		for(int i$ = 0; i$ < indentLevel; ++i$) {
-			logIdent = logIdent + "  ";
-		}
-
-		log.info(logIdent + category.getName());
-
-        for (ItemTreeCategory itemList : category.getSubCategories()) {
-            this.log(itemList, indentLevel + 1);
+        for (ItemTreeCategory subCategory : category.getSubCategories()) {
+            log(subCategory, indentLevel + 1);
         }
 
-        for (List<ItemTreeItem> itemTreeItems : category.getItems()) {
-            for (ItemTreeItem item : itemTreeItems) {
-                log.info(logIdent + "  " + item + " " + item.getId() + " " + item.getDamage());
+        for (List<ItemTreeItem> itemList : category.getItems()) {
+            for (ItemTreeItem item : itemList) {
+                log.info(logIdent + "  " + item + " " + 
+                        item.getId() + " " + item.getDamage());
             }
         }
 
-	}
+    }
+
 }
