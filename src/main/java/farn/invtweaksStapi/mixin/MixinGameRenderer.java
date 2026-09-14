@@ -12,6 +12,6 @@ public class MixinGameRenderer {
 
     @Inject(method="onFrameUpdate", at = @At("TAIL"))
     private void invtweak_onFrameUpdate(float tickDelta, CallbackInfo ci) {
-        InvTweaksStapi.tickGame();
+        InvTweaksStapi.tick();
     }
 }

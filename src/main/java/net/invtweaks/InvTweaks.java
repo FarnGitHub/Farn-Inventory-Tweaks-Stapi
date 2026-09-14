@@ -85,6 +85,8 @@ public class InvTweaks extends Obfuscation {
      */
     private int tickNumber = 0, lastPollingTickNumber = -Const.POLLING_DELAY;
 
+    private InvTweaks() {
+    }
 
     static {
         log.setLevel(Const.DEFAULT_LOG_LEVEL);

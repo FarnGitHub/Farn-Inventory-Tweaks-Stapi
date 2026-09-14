@@ -23,17 +23,17 @@ public class ItemTree {
     private static final Logger log = Logger.getLogger("InvTweaks");
 
     /** All categories, stored by name */
-    private Map<String, ItemTreeCategory> categories = 
-        new HashMap<String, ItemTreeCategory>();
+    private Map<String, ItemTreeCategory> categories =
+            new HashMap<>();
 
     /** Items stored by ID. A same ID can hold several names. */
-    private Map<Integer, Vector<ItemTreeItem>> itemsById = 
-        new HashMap<Integer, Vector<ItemTreeItem>>(500);
+    private Map<Integer, Vector<ItemTreeItem>> itemsById =
+            new HashMap<>(500);
     private static Vector<ItemTreeItem> defaultItems = null;
 
     /** Items stored by name. A same name can match several IDs. */
-    private Map<String, Vector<ItemTreeItem>> itemsByName = 
-        new HashMap<String, Vector<ItemTreeItem>>(500);
+    private Map<String, Vector<ItemTreeItem>> itemsByName =
+            new HashMap<>(500);
 
     private String rootCategory;
 
@@ -44,7 +44,7 @@ public class ItemTree {
     public void reset() {
 
         if (defaultItems == null) {
-            defaultItems = new Vector<ItemTreeItem>();
+            defaultItems = new Vector<>();
             defaultItems.add(new ItemTreeItem("unknown", -1, -1, Integer.MAX_VALUE));
         }
 
@@ -86,11 +86,7 @@ public class ItemTree {
         }
         
         // Everything is stuff
-        if (keyword.equals(rootCategory)) {
-            return true;
-        }
-
-        return false;
+        return keyword.equals(rootCategory);
     }
 
     public int getKeywordDepth(String keyword) {
@@ -160,7 +156,7 @@ public class ItemTree {
             for (ItemTreeItem item : items) {
                 if (item.getDamage() != -1 && item.getDamage() != damage) {
                     if (filteredItems == null) {
-                        filteredItems = new ArrayList<ItemTreeItem>(items);
+                        filteredItems = new ArrayList<>(items);
                     }
                     filteredItems.remove(item);
                 }
@@ -213,14 +209,14 @@ public class ItemTree {
         if (itemsByName.containsKey(newItem.getName())) {
             itemsByName.get(newItem.getName()).add(newItem);
         } else {
-            Vector<ItemTreeItem> list = new Vector<ItemTreeItem>();
+            Vector<ItemTreeItem> list = new Vector<>();
             list.add(newItem);
             itemsByName.put(newItem.getName(), list);
         }
         if (itemsById.containsKey(newItem.getId())) {
             itemsById.get(newItem.getId()).add(newItem);
         } else {
-            Vector<ItemTreeItem> list = new Vector<ItemTreeItem>();
+            Vector<ItemTreeItem> list = new Vector<>();
             list.add(newItem);
             itemsById.put(newItem.getId(), list);
         }

@@ -25,6 +25,7 @@ import net.minecraft.screen.slot.Slot;
  * @author Jimeo Wan
  *
  */
+@SuppressWarnings("unused")
 public class Obfuscation {
 
     protected Minecraft mc = Minecraft.INSTANCE;

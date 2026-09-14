@@ -54,9 +54,8 @@ public class ItemTreeItem extends Obfuscation implements Comparable<ItemTreeItem
      * matches the item constraints (the opposite can be false).
      */
     public boolean equals(Object o) {
-        if (o == null || !(o instanceof ItemTreeItem))
+        if (!(o instanceof ItemTreeItem item))
             return false;
-        ItemTreeItem item = (ItemTreeItem) o;
         return id == item.getId() && (damage == -1 || damage == item.getDamage());
     }
 

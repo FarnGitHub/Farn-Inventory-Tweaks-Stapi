@@ -19,7 +19,6 @@ import net.invtweaks.library.ContainerSectionManager;
 import net.invtweaks.library.Obfuscation;
 import net.invtweaks.tree.ItemTree;
 import net.invtweaks.tree.ItemTreeItem;
-import net.minecraft.client.Minecraft;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -28,7 +27,6 @@ import net.minecraft.screen.slot.Slot;
 /**
  * Core of the sorting behaviour. Allows to move items in a container
  * (inventory or chest) with respect to the mod's configuration.
- * 
  * Here are the different layers of functions, from high to low levels:
  * moveStack
  *   |- swapOrMerge
@@ -41,6 +39,7 @@ import net.minecraft.screen.slot.Slot;
  * @author Jimeo Wan
  *
  */
+@SuppressWarnings({"FieldMayBeFinal", "unused"})
 public class SortingHandler extends Obfuscation {
 
     private static final Logger log = Logger.getLogger("InvTweaks");
@@ -212,15 +211,13 @@ public class SortingHandler extends Obfuscation {
             log.info("Applying rules.");
             
             // Sorts rule by rule, themselves being already sorted by decreasing priority
-            Iterator<SortingRule> rulesIt = rules.iterator();
-            while (rulesIt.hasNext()) {
-                
-                SortingRule rule = rulesIt.next();
+            for (SortingRule rule : rules) {
+
                 int rulePriority = rule.getPriority();
-    
+
                 if (log.getLevel() == Const.DEBUG)
-                    log.info("Rule : "+rule.getKeyword()+"("+rulePriority+")");
-    
+                    log.info("Rule : " + rule.getKeyword() + "(" + rulePriority + ")");
+
                 // For every item in the inventory
                 for (int i = 0; i < size; i++) {
                     ItemStack from = containerMgr.getItemStack(i);
@@ -230,7 +227,7 @@ public class SortingHandler extends Obfuscation {
                         List<ItemTreeItem> fromItems = tree.getItems(
                                 getItemID(from), getItemDamage(from));
                         if (tree.matches(fromItems, rule.getKeyword())) {
-                            
+
                             // Test preffered slots
                             int[] preferredSlots = rule.getPreferredSlots();
                             int stackToMove = i;
@@ -240,14 +237,12 @@ public class SortingHandler extends Obfuscation {
                                 if (moveResult != -1) {
                                     if (moveResult == k) {
                                         break;
-                                    }
-                                    else {
+                                    } else {
                                         from = containerMgr.getItemStack(moveResult);
                                         fromItems = tree.getItems(getItemID(from), getItemDamage(from));
                                         if (!tree.matches(fromItems, rule.getKeyword())) {
                                             break;
-                                        }
-                                        else {
+                                        } else {
                                             stackToMove = moveResult;
                                             j = -1;
                                         }
@@ -284,7 +279,7 @@ public class SortingHandler extends Obfuscation {
     
         log.info("Default sorting.");
         
-        Vector<Integer> remaining = new Vector<Integer>(), nextRemaining = new Vector<Integer>();
+        Vector<Integer> remaining = new Vector<>(), nextRemaining = new Vector<>();
         for (int i = 0; i < size; i++) {
             if (hasToBeMoved(i)) {
                 remaining.add(i);
@@ -293,7 +288,7 @@ public class SortingHandler extends Obfuscation {
         }
         
         int iterations = 0;
-        while (remaining.size() > 0 && iterations++ < 50) {
+        while (!remaining.isEmpty() && iterations++ < 50) {
             for (int i : remaining) {
                 if (hasToBeMoved(i)) {
                     for (int j = 0; j < size; j++) {
@@ -410,7 +405,6 @@ public class SortingHandler extends Obfuscation {
                     keywordOrder[j] = keywordOrder[i];
                     rulePriority[j] = priority;
                     rulePriority[i] = -1;
-                    rulePriority[i] = -1;
                     containerMgr.move(i, j);
 
                     ItemStack remains = containerMgr.getItemStack(i);
@@ -492,18 +486,18 @@ public class SortingHandler extends Obfuscation {
     private int getItemOrder(ItemStack item) {
         List<ItemTreeItem> items = tree.getItems(
                 getItemID(item), getItemDamage(item));
-        return (items != null && items.size() > 0)
+        return (items != null && !items.isEmpty())
                 ? items.get(0).getOrder()
                 : Integer.MAX_VALUE;
     }
     
     private void computeLineSortingRules(int rowSize, boolean horizontal) {
         
-        rules = new Vector<SortingRule>();
+        rules = new Vector<>();
         
         
         Map<ItemTreeItem, Integer> stats = computeContainerStats();
-        List<ItemTreeItem> itemOrder = new ArrayList<ItemTreeItem>();
+        List<ItemTreeItem> itemOrder = new ArrayList<>();
 
         int distinctItems = stats.size();
         int columnSize = getContainerColumnSize(rowSize);
@@ -520,7 +514,7 @@ public class SortingHandler extends Obfuscation {
             return;
         
         // (Partially) sort stats by decreasing item stack count
-        List<ItemTreeItem> unorderedItems = new ArrayList<ItemTreeItem>(stats.keySet());
+        List<ItemTreeItem> unorderedItems = new ArrayList<>(stats.keySet());
         boolean hasStacksToOrderFirst = true;
         while (hasStacksToOrderFirst) {
             hasStacksToOrderFirst = false;
@@ -552,83 +546,70 @@ public class SortingHandler extends Obfuscation {
         char column = '1', maxColumn = (char) (column - 1 + rowSize);
         
         // Create rules
-        Iterator<ItemTreeItem> it = itemOrder.iterator();
-        while (it.hasNext()) {
-            
-            ItemTreeItem item = it.next();
-            
+        for (ItemTreeItem item : itemOrder) {
+
             // Adapt rule dimensions to fit the amount
             int thisSpaceWidth = spaceWidth,
-                thisSpaceHeight = spaceHeight;
-            while (stats.get(item) > thisSpaceHeight*thisSpaceWidth) {
+                    thisSpaceHeight = spaceHeight;
+            while (stats.get(item) > thisSpaceHeight * thisSpaceWidth) {
                 if (horizontal) {
                     if (column + thisSpaceWidth < maxColumn) {
                         thisSpaceWidth = maxColumn - column + 1;
-                    }
-                    else if (row + thisSpaceHeight < maxRow) {
+                    } else if (row + thisSpaceHeight < maxRow) {
                         thisSpaceHeight++;
-                    }
-                    else {
+                    } else {
                         break;
                     }
-                }
-                else {
+                } else {
                     if (row + thisSpaceHeight < maxRow) {
                         thisSpaceHeight = maxRow - row + 1;
-                    }
-                    else if (column + thisSpaceWidth < maxColumn) {
+                    } else if (column + thisSpaceWidth < maxColumn) {
                         thisSpaceWidth++;
-                    }
-                    else {
+                    } else {
                         break;
                     }
                 }
             }
-            
+
             // Adjust line/column ends to fill empty space
             if (horizontal && (column + thisSpaceWidth == maxColumn)) {
                 thisSpaceWidth++;
-            }
-            else if (!horizontal && row + thisSpaceHeight == maxRow) {
+            } else if (!horizontal && row + thisSpaceHeight == maxRow) {
                 thisSpaceHeight++;
             }
-            
+
             // Create rule
             String constraint = row + "" + column + "-"
-                    + (char)(row - 1 + thisSpaceHeight)
-                    + (char)(column - 1 + thisSpaceWidth);
+                    + (char) (row - 1 + thisSpaceHeight)
+                    + (char) (column - 1 + thisSpaceWidth);
             if (!horizontal) {
                 constraint += 'v';
             }
             rules.add(new SortingRule(tree, constraint, item.getName(), size, rowSize));
-            
+
             // Check if ther's still room for more rules
-            availableSlots -= thisSpaceHeight*thisSpaceWidth;
+            availableSlots -= thisSpaceHeight * thisSpaceWidth;
             remainingStacks -= stats.get(item);
             if (availableSlots >= remainingStacks) {
                 // Move origin for next rule
                 if (horizontal) {
                     if (column + thisSpaceWidth + spaceWidth <= maxColumn + 1) {
-                        column += thisSpaceWidth;
-                    }
-                    else {
+                        column += (char) thisSpaceWidth;
+                    } else {
                         column = '1';
-                        row += thisSpaceHeight;
+                        row += (char) thisSpaceHeight;
                     }
-                }
-                else {
+                } else {
                     if (row + thisSpaceHeight + spaceHeight <= maxRow + 1) {
-                        row += thisSpaceHeight;
-                    }
-                    else {
+                        row += (char) thisSpaceHeight;
+                    } else {
                         row = 'a';
-                        column += thisSpaceWidth;
+                        column += (char) thisSpaceWidth;
                     }
                 }
                 if (row > maxRow || column > maxColumn)
                     break;
-            }
-            else {
+            } else {
                 break;
             }
         }
@@ -646,8 +627,8 @@ public class SortingHandler extends Obfuscation {
     }
     
     private Map<ItemTreeItem, Integer> computeContainerStats() {
-        Map<ItemTreeItem, Integer> stats = new HashMap<ItemTreeItem, Integer>();
-        Map<Integer, ItemTreeItem> itemSearch = new HashMap<Integer, ItemTreeItem>();
+        Map<ItemTreeItem, Integer> stats = new HashMap<>();
+        Map<Integer, ItemTreeItem> itemSearch = new HashMap<>();
  
         for (int i = 0; i < size; i++) {
             ItemStack stack = containerMgr.getItemStack(i);

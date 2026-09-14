@@ -67,8 +67,8 @@ public class ShortcutsHandler extends Obfuscation {
     
     public void reset() {
         
-        shortcutKeysStatus = new HashMap<Integer, Boolean>();
-        shortcuts = new HashMap<ShortcutType, List<Integer>>();
+        shortcutKeysStatus = new HashMap<>();
+        shortcuts = new HashMap<>();
         
         Map<String, String> keys = config.getProperties(
                 InvTweaksConfig.PROP_SHORTCUT_PREFIX);
@@ -91,8 +91,8 @@ public class ShortcutsHandler extends Obfuscation {
             }
             else {
                 // Register shortcut mappings
-                String[] keyNames = keys.get(key).split("[ ]*,[ ]*");
-                List<Integer> keyBindings = new LinkedList<Integer>();
+                String[] keyNames = keys.get(key).split(" *, *");
+                List<Integer> keyBindings = new LinkedList<>();
                 for (String keyName : keyNames) {
                     // - Accept both KEY_### and ###, in case someone
                     //   takes the LWJGL Javadoc at face value
@@ -122,7 +122,7 @@ public class ShortcutsHandler extends Obfuscation {
         shortcutKeysStatus.put(downKeyCode, false);
         
         // Add hotbar shortcuts (1-9) mappings & listeners
-        List<Integer> keyBindings = new LinkedList<Integer>();
+        List<Integer> keyBindings = new LinkedList<>();
         int[] hotbarKeys = {Keyboard.KEY_1, Keyboard.KEY_2, Keyboard.KEY_3, 
                 Keyboard.KEY_4, Keyboard.KEY_5, Keyboard.KEY_6,
                 Keyboard.KEY_7, Keyboard.KEY_8, Keyboard.KEY_9,
@@ -139,7 +139,7 @@ public class ShortcutsHandler extends Obfuscation {
     
     public Vector<Integer> getDownShortcutKeys() {
         updateKeyStatuses();
-        Vector<Integer> downShortcutKeys = new Vector<Integer>();
+        Vector<Integer> downShortcutKeys = new Vector<>();
         for (Integer key : shortcutKeysStatus.keySet()) {
             if (shortcutKeysStatus.get(key)) {
                 downShortcutKeys.add(key);
@@ -186,7 +186,7 @@ public class ShortcutsHandler extends Obfuscation {
                 ContainerSection destSection = null;
                 
                 // Set up available sections
-                Vector<ContainerSection> availableSections = new Vector<ContainerSection>();
+                Vector<ContainerSection> availableSections = new Vector<>();
                 if (container.hasSection(ContainerSection.CHEST)) {
                     availableSections.add(ContainerSection.CHEST);
                 }
@@ -212,20 +212,10 @@ public class ShortcutsHandler extends Obfuscation {
                 
                 if (destinationModifier == 0) {
                     // Default behavior
-                    switch (srcSection) {
-
-                    case INVENTORY_HOTBAR:
-                        destSection = ContainerSection.INVENTORY_NOT_HOTBAR;
-                        break;
-                        
-                    case CRAFTING_IN:
-                    case FURNACE_IN:
-                        destSection = ContainerSection.INVENTORY_NOT_HOTBAR;
-                        break;
-                        
-                    default:
-                        destSection = ContainerSection.INVENTORY_HOTBAR;
-                    }
+                    destSection = switch (srcSection) {
+                        case INVENTORY_HOTBAR, CRAFTING_IN, FURNACE_IN -> ContainerSection.INVENTORY_NOT_HOTBAR;
+                        default -> ContainerSection.INVENTORY_HOTBAR;
+                    };
                 }
                 
                 else {
@@ -421,7 +411,7 @@ public class ShortcutsHandler extends Obfuscation {
     }
 
     /**
-     * @param shortcutType
+     * @param shortcutType type of shortcut
      * @return The key that made the shortcut active
      */
     private int isActive(ShortcutType shortcutType) {
@@ -479,21 +469,15 @@ public class ShortcutsHandler extends Obfuscation {
     }
 
     private ShortcutType propNameToShortcutType(String property) {
-        if (property.equals(InvTweaksConfig.PROP_SHORTCUT_ALL_ITEMS)) {
-            return ShortcutType.MOVE_ALL_ITEMS;
-        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_DOWN)) {
-            return ShortcutType.MOVE_DOWN;
-        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_DROP)) {
-            return ShortcutType.DROP;
-        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_ONE_ITEM)) {
-            return ShortcutType.MOVE_ONE_ITEM;
-        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_ONE_STACK)) {
-            return ShortcutType.MOVE_ONE_STACK;
-        } else if (property.equals(InvTweaksConfig.PROP_SHORTCUT_UP)) {
-            return ShortcutType.MOVE_UP;
-        } else {
-            return null;
-        }
+        return switch (property) {
+            case InvTweaksConfig.PROP_SHORTCUT_ALL_ITEMS -> ShortcutType.MOVE_ALL_ITEMS;
+            case InvTweaksConfig.PROP_SHORTCUT_DOWN -> ShortcutType.MOVE_DOWN;
+            case InvTweaksConfig.PROP_SHORTCUT_DROP -> ShortcutType.DROP;
+            case InvTweaksConfig.PROP_SHORTCUT_ONE_ITEM -> ShortcutType.MOVE_ONE_ITEM;
+            case InvTweaksConfig.PROP_SHORTCUT_ONE_STACK -> ShortcutType.MOVE_ONE_STACK;
+            case InvTweaksConfig.PROP_SHORTCUT_UP -> ShortcutType.MOVE_UP;
+            default -> null;
+        };
     }
     
 }

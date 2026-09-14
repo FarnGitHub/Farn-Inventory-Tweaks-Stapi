@@ -38,7 +38,7 @@ public class AutoRefillHandler extends Obfuscation {
     
 	/**
      * Auto-refill
-	 * @throws Exception 
+	 * @throws Exception throw from ContainerSectionManager when invalid section
      */
 	public void autoRefillSlot(int slot, int wantedId, int wantedDamage) throws Exception {
    
@@ -49,7 +49,7 @@ public class AutoRefillHandler extends Obfuscation {
 
 		//// Search replacement
 		
-		List<SortingRule> matchingRules = new ArrayList<SortingRule>();
+		List<SortingRule> matchingRules = new ArrayList<>();
 		List<SortingRule> rules = config.getRules();
 		ItemTree tree = config.getTree();
 		List<ItemTreeItem> items = tree.getItems(wantedId, wantedDamage);
@@ -133,15 +133,11 @@ public class AutoRefillHandler extends Obfuscation {
 						// slot is now empty
 						int pollingTime = 0;
 						setHasInventoryChanged(false);
-						while(!hasInventoryChanged()
-								&& pollingTime < Const.POLLING_TIMEOUT) {
+						while(!hasInventoryChanged()) {
 							trySleep(Const.POLLING_DELAY);
 						}
-						if (pollingTime < Const.AUTO_REFILL_DELAY)
-							trySleep(Const.AUTO_REFILL_DELAY - pollingTime);
-						if (pollingTime >= Const.POLLING_TIMEOUT)
-							log.warning("Autoreplace timout");
-					}
+                        trySleep(Const.AUTO_REFILL_DELAY - pollingTime);
+                    }
 					else {
 						trySleep(Const.AUTO_REFILL_DELAY);
 					}
