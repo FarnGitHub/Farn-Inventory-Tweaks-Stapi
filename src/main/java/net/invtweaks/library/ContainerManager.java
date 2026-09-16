@@ -74,8 +74,11 @@ public class ContainerManager extends Obfuscation {
         // Inventory: 4 crafting slots, then 4 armor slots, then inventory
         if (container instanceof PlayerScreenHandler ps) {
             //ignore accessory slot to avoid issue
-            if(InvTweaksBabric.hasAccessoryApi)
-                size -= AccessoryApiCompat.fix(ps, (as)->slotRefs.put(ContainerSection.UNKNOWN, as));
+            if(InvTweaksBabric.hasAccessoryApi) {
+                List<Slot> accessorySlots = AccessoryApiCompat.getSlots(ps);
+                size -= accessorySlots.size();
+                slotRefs.put(ContainerSection.UNKNOWN, accessorySlots);
+            }
             slotRefs.put(ContainerSection.CRAFTING_OUT, slots.subList(0, 1));
             slotRefs.put(ContainerSection.CRAFTING_IN, slots.subList(1, 5));
             slotRefs.put(ContainerSection.ARMOR, slots.subList(5, 9));
