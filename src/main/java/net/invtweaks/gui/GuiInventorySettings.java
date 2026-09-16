@@ -2,6 +2,7 @@ package net.invtweaks.gui;
 
 import java.awt.Desktop;
 import java.io.File;
+import java.io.ObjectInputFilter;
 import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
@@ -134,6 +135,7 @@ public class GuiInventorySettings extends Screen {
             selectSortingKey = false;
             Const.SORT_KEY_BINDING.code = keyCode;
             sortingButton.text = computeSortKeyButtonLabel();
+            config.setProperty(InvTweaksConfig.PROP_SORT_KEY, Keyboard.getKeyName(keyCode));
         }
     }
 
@@ -208,12 +210,8 @@ public class GuiInventorySettings extends Screen {
 
     private String computeBooleanButtonLabel(String property, String label) {
         String propertyValue = config.getProperty(property);
-        if (propertyValue.equals(InvTweaksConfig.VALUE_CI_COMPATIBILITY)) {
-            return label + DISABLE_CI;
-        } else {
-            boolean enabled = propertyValue.equalsIgnoreCase("true");
-            return label + ((enabled) ? ON : OFF);
-        }
+        boolean enabled = propertyValue.equalsIgnoreCase("true");
+        return label + ((enabled) ? ON : OFF);
     }
 
     private String computeSortKeyButtonLabel() {

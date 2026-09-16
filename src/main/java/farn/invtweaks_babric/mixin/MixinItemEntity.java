@@ -1,4 +1,4 @@
-package farn.invtweaksStapi.mixin;
+package farn.invtweaks_babric.mixin;
 
 import net.invtweaks.InvTweaks;
 import net.minecraft.entity.ItemEntity;

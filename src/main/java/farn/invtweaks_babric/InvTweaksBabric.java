@@ -1,11 +1,15 @@
-package farn.invtweaksStapi;
+package farn.invtweaks_babric;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.invtweaks.Const;
 import net.invtweaks.InvTweaks;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.input.Keyboard;
 
-public class InvTweaksStapi {
+public class InvTweaksBabric {
+
+    public static final boolean hasStationAPI = FabricLoader.getInstance().isModLoaded("stationapi");
+    public static final boolean hasAccessoryApi = FabricLoader.getInstance().isModLoaded("stationapi");
 
     private static boolean pressed = false;
 
@@ -27,6 +31,6 @@ public class InvTweaksStapi {
         } else pressed = false;
     }
 
-    private InvTweaksStapi() {}
+    private InvTweaksBabric() {}
 
 }

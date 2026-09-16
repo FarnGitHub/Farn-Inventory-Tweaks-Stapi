@@ -3,6 +3,7 @@ package net.invtweaks;
 import java.io.File;
 import java.util.logging.Level;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.option.KeyBinding;
 import org.lwjgl.input.Keyboard;
 
@@ -24,17 +25,16 @@ public class Const {
 
     // File constants
     public static final String MINECRAFT_DIR = Obfuscation.getMinecraftDir();
-    public static final String MINECRAFT_CONFIG_DIR = MINECRAFT_DIR + "config" + File.separatorChar;
+    public static final String MINECRAFT_CONFIG_DIR = FabricLoader.getInstance().getConfigDir().toString() + File.separatorChar;
     public static final String CONFIG_PROPS_FILE = MINECRAFT_CONFIG_DIR + "InvTweaks.cfg";
     public static final String CONFIG_RULES_FILE = MINECRAFT_CONFIG_DIR + "InvTweaksRules.txt";
     public static final String CONFIG_TREE_FILE = MINECRAFT_CONFIG_DIR + "InvTweaksTree.txt";
     public static final String OLD_CONFIG_TREE_FILE = MINECRAFT_CONFIG_DIR + "InvTweaksTree.xml";
     public static final String OLDER_CONFIG_RULES_FILE = MINECRAFT_DIR + "InvTweaksRules.txt";
-    public static final String OLDER_CONFIG_TREE_FILE = MINECRAFT_DIR + "InvTweaksTree.txt";
-    public static final String DEFAULT_CONFIG_FILE = "/net/invtweaks/DefaultConfig.dat";
-    public static final String DEFAULT_CONFIG_TREE_FILE = "/net/invtweaks/DefaultTree.dat";
-    public static final String HELP_URL = "http://wan.ka.free.fr/?invtweaks";
-    
+    public static final String OLDER_CONFIG_TREE_FILE = MINECRAFT_DIR + "InvTweaksTree.xml";
+    public static final String DEFAULT_CONFIG_FILE = "/net/invtweaks/DefaultConfig.txt";
+    public static final String DEFAULT_CONFIG_TREE_FILE = "/net/invtweaks/DefaultTree.xml";
+
     // Global mod constants
     public static final String INGAME_LOG_PREFIX = "InvTweaks: ";
     public static final Level DEFAULT_LOG_LEVEL = Level.WARNING;

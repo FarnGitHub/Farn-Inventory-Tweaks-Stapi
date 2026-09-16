@@ -48,9 +48,9 @@ public class InventoryConfigRuleset {
 			frozenSlots[i] = false;
 		}
 
-		lockedSlots = new Vector<Integer>();
-		rules = new Vector<SortingRule>();
-		autoReplaceRules = new Vector<String>();
+		lockedSlots = new Vector<>();
+		rules = new Vector<>();
+		autoReplaceRules = new Vector<>();
 		debugEnabled = false;
 	}
 
@@ -236,7 +236,7 @@ public class InventoryConfigRuleset {
 	 * woodenPlank => woodPlank plankwooden plankwood
 	 */
 	private Vector<String> getKeywordVariants(String keyword) {
-		Vector<String> variants = new Vector<String>();
+		Vector<String> variants = new Vector<>();
 		
 		if (keyword.endsWith("es")) // ex: torches => torch
 			variants.add(keyword.substring(0, keyword.length()-2));

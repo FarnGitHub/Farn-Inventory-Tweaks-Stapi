@@ -7,7 +7,10 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 
+import farn.invtweaks_babric.InvTweaksBabric;
+import farn.invtweaks_babric.compat.StationAPICompat;
 import net.invtweaks.InvTweaks;
+import net.minecraft.item.Item;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -77,7 +80,10 @@ public class ItemTreeLoader extends DefaultHandler {
 
         // Item
         else {
-            int id = Integer.parseInt(attributes.getValue(ATTR_ID));
+            int id = getItemFromStapiID(attributes.getValue(ATTR_ID));
+            if (id < 0) {
+                id = Integer.parseInt(attributes.getValue(ATTR_ID));
+            }
             int damage = -1;
             if (attributes.getValue(ATTR_DAMAGE) != null) {
                 damage = Integer.parseInt(attributes.getValue(ATTR_DAMAGE));
@@ -92,6 +98,10 @@ public class ItemTreeLoader extends DefaultHandler {
         if (name.equals(categoryStack.getLast())) {
             categoryStack.removeLast();
         }
+    }
+
+    private int getItemFromStapiID(String id) {
+        return InvTweaksBabric.hasStationAPI ? StationAPICompat.parseItem(id) : -1;
     }
 
 }

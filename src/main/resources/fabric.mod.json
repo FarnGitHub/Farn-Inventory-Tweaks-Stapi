@@ -14,7 +14,7 @@
   "environment": "client",
   "entrypoints": {
     "modmenu": [
-      "farn.invtweaksStapi.compat.ModMenuCompat"
+      "farn.invtweaks_babric.compat.ModMenuCompat"
     ]
   },
   "mixins": [

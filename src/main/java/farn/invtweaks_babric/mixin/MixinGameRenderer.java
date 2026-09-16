@@ -1,6 +1,6 @@
-package farn.invtweaksStapi.mixin;
+package farn.invtweaks_babric.mixin;
 
-import farn.invtweaksStapi.InvTweaksStapi;
+import farn.invtweaks_babric.InvTweaksBabric;
 import net.minecraft.client.render.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -12,6 +12,6 @@ public class MixinGameRenderer {
 
     @Inject(method="onFrameUpdate", at = @At("TAIL"))
     private void invtweak_onFrameUpdate(float tickDelta, CallbackInfo ci) {
-        InvTweaksStapi.tick();
+        InvTweaksBabric.tick();
     }
 }

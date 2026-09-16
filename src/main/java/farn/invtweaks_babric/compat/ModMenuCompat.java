@@ -1,4 +1,4 @@
-package farn.invtweaksStapi.compat;
+package farn.invtweaks_babric.compat;
 
 import net.danygames2014.modmenu.api.ConfigScreenFactory;
 import net.danygames2014.modmenu.api.ModMenuApi;
