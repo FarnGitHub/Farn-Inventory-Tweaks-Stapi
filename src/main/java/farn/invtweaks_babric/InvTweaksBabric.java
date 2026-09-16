@@ -9,7 +9,7 @@ import org.lwjgl.input.Keyboard;
 public class InvTweaksBabric {
 
     public static final boolean hasStationAPI = FabricLoader.getInstance().isModLoaded("stationapi");
-    public static final boolean hasAccessoryApi = FabricLoader.getInstance().isModLoaded("stationapi");
+    public static final boolean hasAccessoryApi = FabricLoader.getInstance().isModLoaded("accessoryapi");
 
     private static boolean pressed = false;
 

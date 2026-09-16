@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
-import com.periut.accessoryapi.impl.slot.AccessorySlotStorage;
 import farn.invtweaks_babric.InvTweaksBabric;
+import farn.invtweaks_babric.compat.AccessoryApiCompat;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
@@ -47,7 +47,7 @@ public class ContainerManager extends Obfuscation {
     }
     
     private ScreenHandler container;
-    private Map<ContainerSection, List<Slot>> slotRefs = new HashMap<ContainerSection, List<Slot>>();
+    public Map<ContainerSection, List<Slot>> slotRefs = new HashMap<ContainerSection, List<Slot>>();
     
     
     /**
@@ -72,9 +72,9 @@ public class ContainerManager extends Obfuscation {
         boolean guiWithInventory = true;
 
         // Inventory: 4 crafting slots, then 4 armor slots, then inventory
-        if (container instanceof PlayerScreenHandler) {
+        if (container instanceof PlayerScreenHandler plrS) {
             if(InvTweaksBabric.hasAccessoryApi)
-                size -= AccessorySlotStorage.getSlotCount();
+                size -= AccessoryApiCompat.fix(plrS, this);
             slotRefs.put(ContainerSection.CRAFTING_OUT, slots.subList(0, 1));
             slotRefs.put(ContainerSection.CRAFTING_IN, slots.subList(1, 5));
             slotRefs.put(ContainerSection.ARMOR, slots.subList(5, 9));
