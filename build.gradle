@@ -80,6 +80,9 @@ repositories {
     }
 
     mavenCentral()
+    flatDir {
+        dirs 'lib'
+    }
 }
 
 dependencies {
@@ -138,7 +141,7 @@ dependencies {
     }
 
     if (project.hasProperty("accessoryapi_version")) {
-        modImplementation("maven.modrinth:accessory-api:${project.accessoryapi_version}") {
+        modCompileOnly("maven.modrinth:accessory-api:${project.accessoryapi_version}") {
             transitive = false
         }
     }
@@ -147,20 +150,6 @@ dependencies {
         modImplementation("net.danygames2014:WhatsThis:${project.whatsthis_version}") {
             transitive = false
         }
-    }
-
-    if (project.hasProperty("nyalib_version")) {
-        modImplementation("net.danygames2014:NyaLib:${project.nyalib_version}")
-    }
-
-    if (project.hasProperty("uniwrench_version")) {
-        modImplementation("net.danygames2014:UniWrench:${project.uniwrench_version}") {
-            transitive = false
-        }
-    }
-
-    if (project.hasProperty("debugutilities_version")) {
-        modImplementation("net.danygames2014:DebugUtilities:${project.debugutilities_version}")
     }
 
     if (project.hasProperty("retroauth_version")) {
@@ -174,10 +163,6 @@ dependencies {
     modRuntimeOnly("maven.modrinth:fast-stapi-intro:2.0.0-b1.7.3") {
         transitive = false
     }
-
-    modImplementation "maven.modrinth:9XSScuqN:zHL8yOyT"
-
-    modImplementation(files("lib/coolbelt-1.7.2.jar"))
 
 }
 
